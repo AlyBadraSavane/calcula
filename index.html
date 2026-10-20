@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Calcula</title>
+<meta name="theme-color" content="#090b10">
+<meta name="description" content="Calculatrice scientifique, convertisseur, devises et outils.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calcula">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+[hidden]{display:none!important}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@200;300;400;500&display=swap">
+<style>
+/* Layout: écran unique plein hauteur — affichage en haut, clavier en bas, barre d'onglets glassmorphism.
+   Direction: acier sombre, touches métalliques, accent or champagne sur le "=" uniquement. */
+:root{
+  --bg:#e7eaf0; --glow:#ffffff; --fg:#141926; --fg2:#586177; --fg3:#8a93a6;
+  --surface:rgba(255,255,255,.7); --line:rgba(20,30,50,.10); --hi:rgba(255,255,255,.95); --shadow:rgba(30,40,70,.28);
+  --key-a:#ffffff; --key-b:#f0f2f8; --fn-a:#dde2ec; --fn-b:#cdd4e2;
+  --accent:#9a6b12; --eq-a:#f4d684; --eq-b:#c0903a; --eq-ink:#2a1c05; --danger:#c43d3d;
+  --f-display:'Sora','Helvetica Neue',Arial,sans-serif; --f-body:'Manrope','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#090b10; --glow:#1b2436; --fg:#eef1f7; --fg2:#8d97ab; --fg3:#5d6678;
+  --surface:rgba(255,255,255,.05); --line:rgba(255,255,255,.09); --hi:rgba(255,255,255,.09); --shadow:rgba(0,0,0,.65);
+  --key-a:#242a39; --key-b:#171b26; --fn-a:#344056; --fn-b:#222b3c;
+  --accent:#e8c46c; --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#090b10; --glow:#1b2436; --fg:#eef1f7; --fg2:#8d97ab; --fg3:#5d6678;
+  --surface:rgba(255,255,255,.05); --line:rgba(255,255,255,.09); --hi:rgba(255,255,255,.09); --shadow:rgba(0,0,0,.65);
+  --key-a:#242a39; --key-b:#171b26; --fn-a:#344056; --fn-b:#222b3c;
+  --accent:#e8c46c; --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;font-family:var(--f-body);font-size:15px;color:var(--fg);
+  background:radial-gradient(120% 55% at 50% -8%,var(--glow),transparent 62%),var(--bg);
+  padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-block:10px 0}
+.panels{flex:1;min-height:0;position:relative}
+.panel{height:100%;display:flex;flex-direction:column;min-height:0}
+.scroll{overflow-y:auto;overflow-x:hidden;padding-bottom:14px;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+h1{font:500 1.05rem var(--f-display);margin:0;letter-spacing:-.01em}
+.sub{color:var(--fg2);font-size:.82rem;margin:4px 0 0;line-height:1.45;max-width:46ch}
+
+/* top bar */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px}
+.seg{display:inline-flex;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.seg button{padding:7px 14px;border-radius:999px;font-size:.8rem;font-weight:600;color:var(--fg2);transition:background .2s,color .2s}
+.seg button[aria-pressed="true"]{background:linear-gradient(180deg,var(--key-a),var(--key-b));color:var(--fg);box-shadow:inset 0 1px 0 var(--hi),0 3px 8px -4px var(--shadow)}
+.icons{display:flex;gap:6px}
+.ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--fg2);background:var(--surface);border:1px solid var(--line);transition:transform .15s,color .2s}
+.ico:active{transform:scale(.92)}
+.ico:hover{color:var(--fg)}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* display */
+.disp{flex:1 1 0;min-height:84px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;gap:4px;padding:6px 4px 10px;min-width:0;position:relative}
+.expr,.res{max-width:100%;white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;font-family:var(--f-display);font-variant-numeric:tabular-nums;text-align:right}
+.expr::-webkit-scrollbar,.res::-webkit-scrollbar{display:none}
+.expr{font-weight:300;font-size:2.9rem;line-height:1.15;letter-spacing:-.03em;transition:font-size .25s,color .25s}
+.expr.m{font-size:2.2rem}.expr.l{font-size:1.65rem}
+.res{font-weight:300;font-size:1.35rem;color:var(--fg2);min-height:1.7em;transition:font-size .25s,color .25s;letter-spacing:-.02em}
+.disp.done .expr{font-size:1.05rem;color:var(--fg3);letter-spacing:0}
+.disp.done .res{font-size:2.9rem;color:var(--fg);line-height:1.15;letter-spacing:-.03em}
+.disp.done .res.m{font-size:2.2rem}.disp.done .res.l{font-size:1.65rem}
+.disp.err .res{color:var(--danger)}
+.disp.shake{animation:shake .32s}
+@keyframes shake{20%{transform:translateX(-6px)}50%{transform:translateX(5px)}80%{transform:translateX(-3px)}}
+.angle{position:absolute;left:4px;bottom:12px;font:600 .7rem var(--f-body);color:var(--fg3);letter-spacing:.06em}
+
+/* keypad */
+#p-calc{gap:6px}
+.sci{flex:0 0 0;min-height:0;overflow:hidden;transition:flex-grow .3s ease}
+.sci.open{flex:4 1 0;min-height:150px;max-height:300px}
+.sci>div{height:100%}
+.sci .pad{height:100%;padding-bottom:8px;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,minmax(0,1fr));gap:8px;max-height:none;min-height:0}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,minmax(0,1fr));gap:10px;flex:5 1 0;min-height:0;max-height:440px}
+#pad{min-height:210px}
+.k{position:relative;overflow:hidden;border-radius:20px;font:400 1.5rem var(--f-display);color:var(--fg);
+  background:linear-gradient(180deg,var(--key-a),var(--key-b));border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 var(--hi),0 8px 16px -10px var(--shadow);transition:transform .12s,filter .12s;touch-action:manipulation}
+.k:active{transform:scale(.94);filter:brightness(1.12)}
+.k.fn{background:linear-gradient(180deg,var(--fn-a),var(--fn-b));font-size:1.15rem;font-weight:500}
+.k.op{color:var(--accent);font-size:1.7rem}
+.k.eq{background:linear-gradient(135deg,var(--eq-a),var(--eq-b));color:var(--eq-ink);border-color:transparent;font-weight:500;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 10px 22px -10px var(--eq-b)}
+.k.eq::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-120%)}
+.k.eq.flash::after{transform:translateX(120%);transition:transform .55s ease}
+.sci .k{font-size:.98rem;border-radius:14px;font-family:var(--f-body);font-weight:600}
+.sci .k.on{color:var(--accent)}
+.k svg{margin:auto}
+
+/* history sheet */
+.sheet{position:absolute;inset:0 0 0 0;z-index:5;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;
+  background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(26px) saturate(1.3);-webkit-backdrop-filter:blur(26px) saturate(1.3);
+  transform:translateY(-8px);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s}
+.sheet.open{opacity:1;transform:none;pointer-events:auto}
+.sheet header{display:flex;justify-content:space-between;align-items:center}
+.sheet ul{list-style:none;margin:0;padding:0;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:2px}
+.sheet li button{width:100%;text-align:right;padding:10px 6px;border-radius:12px;display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+.sheet li button:active{background:var(--line)}
+.sheet .e{color:var(--fg2);font-size:.85rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sheet .r{font:300 1.5rem var(--f-display);font-variant-numeric:tabular-nums}
+.empty{margin:auto;text-align:center;color:var(--fg2);max-width:26ch;line-height:1.5}
+.link{color:var(--accent);font-weight:600;font-size:.85rem;padding:6px 8px}
+
+/* nav */
+.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px;margin-bottom:8px;border-radius:24px;
+  background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0 6px;border-radius:18px;font-size:.68rem;font-weight:600;color:var(--fg3);transition:color .2s,background .2s}
+.nav button[aria-selected="true"]{color:var(--fg);background:linear-gradient(180deg,var(--key-a),var(--key-b));box-shadow:inset 0 1px 0 var(--hi),0 4px 10px -6px var(--shadow)}
+.nav button[aria-selected="true"] svg{stroke:var(--accent)}
+
+/* converter + tools */
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px;margin:10px 0 8px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 14px;border-radius:999px;font-size:.8rem;font-weight:600;color:var(--fg2);background:var(--surface);border:1px solid var(--line)}
+.chip[aria-pressed="true"]{color:var(--eq-ink);background:linear-gradient(135deg,var(--eq-a),var(--eq-b));border-color:transparent}
+.card{border-radius:22px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.big{flex:1;min-width:0;font:300 2rem var(--f-display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:none;border:0;outline:0;padding:0;user-select:text;-webkit-user-select:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.big:focus-visible{outline:0}
+.card:focus-within{border-color:var(--accent)}
+select,.in{background:linear-gradient(180deg,var(--key-a),var(--key-b));border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:.88rem;font-weight:600;min-width:0;box-shadow:inset 0 1px 0 var(--hi)}
+select{max-width:46%;appearance:none;-webkit-appearance:none;padding-right:26px;background-image:linear-gradient(180deg,var(--key-a),var(--key-b)),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238d97ab' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:0 0,right 10px center;background-size:auto,10px}
+.swap{align-self:center;width:42px;height:42px;margin:-14px 0;z-index:1;border-radius:50%;display:grid;place-items:center;color:var(--eq-ink);background:linear-gradient(135deg,var(--eq-a),var(--eq-b));box-shadow:0 8px 18px -8px var(--eq-b);transition:transform .3s}
+.swap:active{transform:rotate(180deg) scale(.92)}
+.lbl{font-size:.74rem;font-weight:600;color:var(--fg2)}
+.list{display:flex;flex-direction:column;margin-top:12px}
+.list button{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);text-align:left;min-width:0}
+.list button:last-child{border-bottom:0}
+.list .n{color:var(--fg2);font-size:.88rem}
+.list .v{font:400 1rem var(--f-display);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.list button.cur .n,.list button.cur .v{color:var(--accent)}
+details{margin-top:14px}
+summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var(--accent);padding:6px 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+.rates{display:grid;gap:8px;margin-top:8px}
+.rates label{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--fg2)}
+.rates .in{flex:1;text-align:right;font-variant-numeric:tabular-nums;user-select:text;-webkit-user-select:text}
+.rates span{width:4.6em;flex:none}
+.note{font-size:.76rem;color:var(--fg3);line-height:1.5;margin:8px 0 0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field .in{width:100%;font-size:1.05rem;font-family:var(--f-display);font-weight:400;user-select:text;-webkit-user-select:text}
+.field .wrap{position:relative}
+.field .suf{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--fg3);font-size:.8rem;pointer-events:none}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fields .field.full{grid-column:1/-1}
+.out{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.out .v{font:400 1.15rem var(--f-display);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.out.main .v{font-size:2rem;font-weight:300;color:var(--accent);letter-spacing:-.03em}
+.out .n{color:var(--fg2);font-size:.85rem}
+@media (max-height:700px){.expr{font-size:2.3rem}.k{font-size:1.3rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <main class="panels">
+
+    <!-- CALCUL -->
+    <section class="panel" id="p-calc" role="tabpanel">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Mode">
+          <button id="m-std" aria-pressed="true">Standard</button>
+          <button id="m-sci" aria-pressed="false">Scientifique</button>
+        </div>
+        <div class="icons">
+          <button class="ico" id="b-hist" aria-label="Historique"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+          <button class="ico" id="b-theme" aria-label="Changer de thème"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+        </div>
+      </div>
+      <div class="disp" id="disp">
+        <span class="angle" id="angle" hidden>DEG</span>
+        <div class="expr" id="expr" aria-live="off">0</div>
+        <div class="res" id="res" aria-live="polite"></div>
+      </div>
+      <div class="sci" id="sci"><div><div class="pad" id="sci-pad"></div></div></div>
+      <div class="pad" id="pad"></div>
+
+      <div class="sheet" id="sheet" aria-hidden="true">
+        <header><h1>Historique</h1><button class="link" id="h-clear">Effacer</button></header>
+        <ul id="hist"></ul>
+        <button class="link" id="h-close">Fermer</button>
+      </div>
+    </section>
+
+    <!-- CONVERTIR -->
+    <section class="panel" id="p-conv" role="tabpanel" hidden>
+      <div class="scroll">
+        <h1>Convertisseur</h1>
+        <div class="chips" id="cats"></div>
+        <div id="conv"></div>
+      </div>
+    </section>
+
+    <!-- DEVISES -->
+    <section class="panel" id="p-cur" role="tabpanel" hidden>
+      <div class="scroll">
+        <h1>Devises</h1>
+        <p class="sub">GNF, FCFA, dollar, euro et autres. Les taux de départ sont approximatifs : saisissez le taux du jour pour un résultat exact.</p>
+        <div style="height:12px"></div>
+        <div id="cur"></div>
+        <details id="ratebox">
+          <summary>Modifier les taux</summary>
+          <div class="rates" id="rates"></div>
+          <button class="link" id="rates-reset" style="padding-left:0">Remettre les taux de départ</button>
+          <p class="note">Chaque ligne indique combien d'unités de la devise valent 1 dollar américain. Les taux sont gardés sur cet appareil.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- OUTILS -->
+    <section class="panel" id="p-tools" role="tabpanel" hidden>
+      <div class="scroll">
+        <h1>Outils</h1>
+        <div class="chips" id="tool-chips"></div>
+        <div class="card" id="tool"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="nav" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="calc" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>Calcul</button>
+    <button role="tab" data-tab="conv" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Convertir</button>
+    <button role="tab" data-tab="cur" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1 0-2-.5-2.5-1.5M12 6.5v1.5M12 16v1.5"/></svg>Devises</button>
+    <button role="tab" data-tab="tools" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Outils</button>
+  </nav>
+</div>
+
+<script>
+/*ENGINE*/
+function evaluate(src, deg){
+  const toks=[]; const re=/(\d+\.?\d*(?:E[+-]?\d+)?|\.\d+|asin|acos|atan|sin|cos|tan|ln|log|√|π|e|[+−×÷^!%()])/y;
+  src=src.replace(/\s+/g,''); let p=0;
+  while(p<src.length){re.lastIndex=p;const m=re.exec(src);if(!m)throw new Error('x');toks.push(m[1]);p=re.lastIndex;}
+  let open=0;toks.forEach(t=>{if(t==='(')open++;else if(t===')')open--;});while(open-->0)toks.push(')');
+  let i=0;
+  const FN=['asin','acos','atan','sin','cos','tan','ln','log','√'];
+  const isNum=t=>/^[\d.]/.test(t);
+  const startsFactor=t=>t!==undefined&&(isNum(t)||t==='('||FN.includes(t)||t==='π'||t==='e');
+  const fact=n=>{if(n<0||n>170||Math.floor(n)!==n)return NaN;let r=1;for(let k=2;k<=n;k++)r*=k;return r;};
+  const rad=x=>deg?x*Math.PI/180:x, back=x=>deg?x*180/Math.PI:x;
+  const F={sin:x=>Math.sin(rad(x)),cos:x=>Math.cos(rad(x)),tan:x=>Math.tan(rad(x)),
+    asin:x=>back(Math.asin(x)),acos:x=>back(Math.acos(x)),atan:x=>back(Math.atan(x)),
+    ln:Math.log,log:Math.log10,'√':Math.sqrt};
+  function expr(){let l=term();while(toks[i]==='+'||toks[i]==='−'){const op=toks[i++];const r=term();const rv=r.pct?l.v*r.v:r.v;l={v:op==='+'?l.v+rv:l.v-rv};}return l;}
+  function term(){let l=unary();for(;;){const t=toks[i];
+    if(t==='×'||t==='÷'){i++;const r=unary();l={v:t==='×'?l.v*r.v:l.v/r.v};}
+    else if(startsFactor(t)){const r=unary();l={v:l.v*r.v};}
+    else break;}return l;}
+  function unary(){if(toks[i]==='−'){i++;return{v:-unary().v};}if(toks[i]==='+'){i++;return unary();}return power();}
+  function power(){const b=postfix();if(toks[i]==='^'){i++;const e=unary();return{v:Math.pow(b.v,e.v)};}return b;}
+  function postfix(){let a=primary();for(;;){if(toks[i]==='!'){i++;a={v:fact(a.v)};}else if(toks[i]==='%'){i++;a={v:a.v/100,pct:true};}else break;}return a;}
+  function primary(){const t=toks[i++];if(t===undefined)throw new Error('x');
+    if(isNum(t))return{v:parseFloat(t)};
+    if(t==='π')return{v:Math.PI};if(t==='e')return{v:Math.E};
+    if(t==='('){const r=expr();if(toks[i]===')')i++;return{v:r.v};}
+    if(FN.includes(t)){let a;if(toks[i]==='('){i++;a=expr().v;if(toks[i]===')')i++;}else a=unary().v;return{v:F[t](a)};}
+    throw new Error('x');}
+  const r=expr();if(i<toks.length)throw new Error('x');
+  const v=parseFloat(r.v.toPrecision(12));
+  if(!isFinite(v))throw new Error('x');
+  return v;
+}
+/*ENDENGINE*/
+
+(function(){
+const $=s=>document.querySelector(s);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(7);}catch(e){}};
+const NB=' ';
+const nf=(max)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:max});
+function fmtN(n,dec){
+  if(n==null||!isFinite(n))return '—';
+  const a=Math.abs(n);
+  if(a!==0&&(a<1e-6||a>=1e15))return n.toExponential(6).replace('.',',');
+  return nf(dec!=null?dec:(a>=100?2:6)).format(n);
+}
+function fmtCalc(n){
+  const a=Math.abs(n);
+  if(a!==0&&(a<1e-7||a>=1e15))return parseFloat(n.toPrecision(10)).toExponential().replace('e','×10^').replace('.',',').replace('+','');
+  return nf(10).format(parseFloat(n.toPrecision(12)));
+}
+function rawNum(n){
+  const a=Math.abs(n);
+  if(a>=1e21||(a!==0&&a<1e-6))return n.toExponential(12).replace('e','E');
+  return String(parseFloat(n.toPrecision(15)));
+}
+function fmtExpr(s){return s.replace(/\d+(\.\d*)?|\.\d+/g,m=>{const[i,d]=m.split('.');const g=i.replace(/\B(?=(\d{3})+(?!\d))/g,NB);return d!==undefined?g+','+d:g;});}
+
+/* ---------- onglets ---------- */
+const tabs=document.querySelectorAll('.nav button');
+function showTab(id){
+  tabs.forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));
+  ['calc','conv','cur','tools'].forEach(t=>{$('#p-'+t).hidden=t!==id;});
+  store.set('calc.tab',id);
+}
+tabs.forEach(b=>b.addEventListener('click',()=>{buzz();showTab(b.dataset.tab);}));
+
+/* ---------- thème ---------- */
+$('#b-theme').addEventListener('click',()=>{
+  const root=document.documentElement;
+  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme=dark?'light':'dark';store.set('calc.theme',root.dataset.theme);
+});
+const savedTheme=store.get('calc.theme',null);if(savedTheme)document.documentElement.dataset.theme=savedTheme;
+
+/* ---------- calculatrice ---------- */
+const S={expr:'',done:false,deg:true,ans:'0',hist:store.get('calc.hist',[])};
+const OPS='+−×÷^';
+const exprEl=$('#expr'),resEl=$('#res'),dispEl=$('#disp');
+
+function fit(el,txt){el.classList.remove('m','l');const n=txt.length;if(n>16)el.classList.add('l');else if(n>10)el.classList.add('m');}
+function render(){
+  const shown=S.expr?fmtExpr(S.expr).replace(/\./g,','):'0';
+  exprEl.textContent=shown;fit(exprEl,shown);
+  dispEl.classList.remove('err');
+  let r='';
+  if(S.done){r=fmtCalc(parseFloat(S.ans));dispEl.classList.add('done');fit(resEl,r);}
+  else{
+    dispEl.classList.remove('done');resEl.classList.remove('m','l');
+    if(/[+−×÷^!%]|[a-zπ√]/.test(S.expr.replace(/^−/,''))&&!/^[\d.]+$/.test(S.expr)){
+      try{r='= '+fmtCalc(evaluate(S.expr,S.deg));}catch(e){r='';}
+    }
+  }
+  resEl.textContent=r;
+  requestAnimationFrame(()=>{exprEl.scrollLeft=exprEl.scrollWidth;});
+}
+function startFrom(tok){
+  if(!S.done)return;
+  if(OPS.includes(tok)||tok==='!'||tok==='%')S.expr=S.ans;else S.expr='';
+  S.done=false;
+}
+function insert(tok){
+  startFrom(tok);
+  const last=S.expr.slice(-1);
+  if(OPS.includes(tok)){
+    if(!S.expr){if(tok==='−')S.expr='−';render();return;}
+    if(OPS.includes(last)||last==='('){
+      if(tok==='−'&&last!=='−'&&last!=='+'&&(last==='×'||last==='÷'||last==='^'||last==='(')){S.expr+=tok;}
+      else if(last!=='(')S.expr=S.expr.slice(0,-1)+tok;
+      render();return;
+    }
+  }
+  if(tok==='.'){
+    const m=S.expr.match(/[\d.]+$/);
+    if(m){if(m[0].includes('.'))return;}else tok='0.';
+  }
+  if((tok==='%'||tok==='!')&&!/[\d)πe]$/.test(S.expr))return;
+  S.expr+=tok;render();
+}
+function backspace(){
+  if(S.done){clearAll();return;}
+  const fn=/(?:asin|acos|atan|sin|cos|tan|ln|log|√)\($/;
+  S.expr=fn.test(S.expr)?S.expr.replace(fn,''):S.expr.slice(0,-1);
+  render();
+}
+function clearAll(){S.expr='';S.done=false;render();}
+function negate(){
+  if(S.done){S.expr=S.ans;S.done=false;}
+  let m=S.expr.match(/\(−([\d.]+)\)$/);
+  if(m)S.expr=S.expr.replace(/\(−([\d.]+)\)$/,'$1');
+  else if((m=S.expr.match(/([\d.]+)$/)))S.expr=S.expr.replace(/([\d.]+)$/,'(−$1)');
+  render();
+}
+function equals(){
+  if(!S.expr||S.done)return;
+  try{
+    const v=evaluate(S.expr,S.deg);
+    const e=fmtExpr(S.expr).replace(/\./g,',');
+    S.hist.unshift({e,r:fmtCalc(v),raw:rawNum(v)});S.hist=S.hist.slice(0,60);store.set('calc.hist',S.hist);
+    S.ans=rawNum(v);S.done=true;render();
+    const eq=document.querySelector('.k.eq');eq.classList.remove('flash');void eq.offsetWidth;eq.classList.add('flash');
+    setTimeout(()=>eq.classList.remove('flash'),600);
+  }catch(e){
+    dispEl.classList.remove('shake');void dispEl.offsetWidth;dispEl.classList.add('shake');
+    dispEl.classList.add('err');resEl.textContent='Calcul impossible';
+  }
+}
+
+/* touches */
+const MAIN=[
+ ['AC','fn',clearAll],['bk','fn',backspace],['%','fn',()=>insert('%')],['÷','op',()=>insert('÷')],
+ ['7','',()=>insert('7')],['8','',()=>insert('8')],['9','',()=>insert('9')],['×','op',()=>insert('×')],
+ ['4','',()=>insert('4')],['5','',()=>insert('5')],['6','',()=>insert('6')],['−','op',()=>insert('−')],
+ ['1','',()=>insert('1')],['2','',()=>insert('2')],['3','',()=>insert('3')],['+','op',()=>insert('+')],
+ ['±','fn',negate],['0','',()=>insert('0')],[',','',()=>insert('.')],['=','eq',equals]
+];
+const SCI=[
+ ['sin','',()=>insert('sin(')],['cos','',()=>insert('cos(')],['tan','',()=>insert('tan(')],['(','',()=>insert('(')],[')','',()=>insert(')')],
+ ['ln','',()=>insert('ln(')],['log','',()=>insert('log(')],['√','',()=>insert('√(')],['x²','',()=>insert('^2')],['xʸ','',()=>insert('^')],
+ ['π','',()=>insert('π')],['e','',()=>insert('e')],['n!','',()=>insert('!')],['1/x','',()=>insert('1÷(')],['deg','on',toggleDeg],
+ ['asin','',()=>insert('asin(')],['acos','',()=>insert('acos(')],['atan','',()=>insert('atan(')]
+];
+const BK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="m12 10 4 4m0-4-4 4"/></svg>';
+function build(host,list){
+  list.forEach(([label,cls,fn])=>{
+    const b=document.createElement('button');b.className='k '+cls;
+    if(label==='bk'){b.innerHTML=BK;b.setAttribute('aria-label','Effacer un caractère');}
+    else if(label==='deg'){b.id='k-deg';b.textContent='DEG';b.setAttribute('aria-label','Basculer degrés et radians');}
+    else b.textContent=label;
+    b.addEventListener('click',()=>{buzz();fn();});host.appendChild(b);
+  });
+}
+build($('#pad'),MAIN);build($('#sci-pad'),SCI);
+function toggleDeg(){S.deg=!S.deg;$('#k-deg').textContent=S.deg?'DEG':'RAD';$('#angle').textContent=S.deg?'DEG':'RAD';if(S.done){/* résultat figé */}else render();}
+
+/* mode */
+function setMode(sci){
+  $('#sci').classList.toggle('open',sci);
+  $('#m-std').setAttribute('aria-pressed',String(!sci));$('#m-sci').setAttribute('aria-pressed',String(sci));
+  $('#angle').hidden=!sci;store.set('calc.sci',sci);
+}
+$('#m-std').addEventListener('click',()=>setMode(false));
+$('#m-sci').addEventListener('click',()=>setMode(true));
+
+/* historique */
+function renderHist(){
+  const ul=$('#hist');ul.innerHTML='';
+  if(!S.hist.length){ul.innerHTML='<li class="empty">Vos calculs apparaîtront ici. Touchez un résultat pour le réutiliser.</li>';return;}
+  S.hist.forEach(h=>{
+    const li=document.createElement('li');const b=document.createElement('button');
+    b.innerHTML='<span class="e"></span><span class="r"></span>';
+    b.querySelector('.e').textContent=h.e+' =';b.querySelector('.r').textContent=h.r;
+    b.addEventListener('click',()=>{S.expr=h.raw;S.done=false;render();closeHist();});
+    li.appendChild(b);ul.appendChild(li);
+  });
+}
+function openHist(){renderHist();$('#sheet').classList.add('open');$('#sheet').setAttribute('aria-hidden','false');}
+function closeHist(){$('#sheet').classList.remove('open');$('#sheet').setAttribute('aria-hidden','true');}
+$('#b-hist').addEventListener('click',openHist);$('#h-close').addEventListener('click',closeHist);
+$('#h-clear').addEventListener('click',()=>{S.hist=[];store.set('calc.hist',[]);renderHist();});
+
+/* clavier physique */
+document.addEventListener('keydown',e=>{
+  if($('#p-calc').hidden||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)||e.ctrlKey||e.metaKey)return;
+  const k=e.key;
+  if(/^\d$/.test(k))insert(k);
+  else if(k==='.'||k===',')insert('.');
+  else if(k==='+')insert('+');else if(k==='-')insert('−');
+  else if(k==='*'||k==='x')insert('×');else if(k==='/'){e.preventDefault();insert('÷');}
+  else if(k==='^')insert('^');else if(k==='%')insert('%');else if(k==='!')insert('!');
+  else if(k==='('||k===')')insert(k);
+  else if(k==='Enter'||k==='='){e.preventDefault();equals();}
+  else if(k==='Backspace')backspace();else if(k==='Escape')clearAll();
+});
+
+/* ---------- convertisseur générique ---------- */
+function lin(id,name,sym,f){return{id,name,sym,to:x=>x*f,from:b=>b/f};}
+const CATS=[
+ {id:'len',name:'Longueur',units:[lin('mm','Millimètre','mm',.001),lin('cm','Centimètre','cm',.01),lin('m','Mètre','m',1),lin('km','Kilomètre','km',1000),lin('in','Pouce','in',.0254),lin('ft','Pied','ft',.3048),lin('yd','Yard','yd',.9144),lin('mi','Mille','mi',1609.344)],from:'km',to:'mi',val:'10'},
+ {id:'mass',name:'Masse',units:[lin('mg','Milligramme','mg',1e-6),lin('ct','Carat','ct',2e-4),lin('g','Gramme','g',.001),lin('ozt','Once troy (or)','oz t',.0311034768),lin('kg','Kilogramme','kg',1),lin('t','Tonne','t',1000),lin('oz','Once','oz',.028349523125),lin('lb','Livre','lb',.45359237)],from:'ozt',to:'g',val:'1'},
+ {id:'temp',name:'Température',units:[
+   {id:'c',name:'Celsius','sym':'°C',to:x=>x,from:b=>b},
+   {id:'f',name:'Fahrenheit',sym:'°F',to:x=>(x-32)*5/9,from:b=>b*9/5+32},
+   {id:'k',name:'Kelvin',sym:'K',to:x=>x-273.15,from:b=>b+273.15}],from:'c',to:'f',val:'25'},
+ {id:'vol',name:'Volume',units:[lin('ml','Millilitre','mL',.001),lin('l','Litre','L',1),lin('m3','Mètre cube','m³',1000),lin('gal','Gallon US','gal',3.785411784),lin('floz','Once liquide US','fl oz',.0295735295625)],from:'l',to:'gal',val:'20'},
+ {id:'area',name:'Surface',units:[lin('cm2','cm²','cm²',1e-4),lin('m2','m²','m²',1),lin('ha','Hectare','ha',1e4),lin('km2','km²','km²',1e6),lin('ft2','Pied carré','ft²',.09290304),lin('ac','Acre','ac',4046.8564224)],from:'ha',to:'ac',val:'1'},
+ {id:'speed',name:'Vitesse',units:[lin('ms','Mètre/seconde','m/s',1),lin('kmh','Kilomètre/heure','km/h',1/3.6),lin('mph','Mile/heure','mph',.44704),lin('kn','Nœud','nd',.514444)],from:'kmh',to:'mph',val:'100'},
+ {id:'time',name:'Durée',units:[lin('s','Seconde','s',1),lin('min','Minute','min',60),lin('h','Heure','h',3600),lin('d','Jour','j',86400),lin('w','Semaine','sem.',604800)],from:'h',to:'min',val:'2.5'},
+ {id:'data',name:'Données',units:[lin('o','Octet','o',1),lin('ko','Kilooctet','Ko',1e3),lin('mo','Mégaoctet','Mo',1e6),lin('go','Gigaoctet','Go',1e9),lin('to','Téraoctet','To',1e12)],from:'go',to:'mo',val:'4'}
+];
+const parse=s=>{const v=parseFloat(String(s).replace(/\s/g,'').replace(',','.'));return isNaN(v)?null:v;};
+
+function Converter(root,getCfg,opts){
+  opts=opts||{};
+  let st=null;
+  function mount(cfg){
+    st={cfg,from:cfg.from,to:cfg.to,val:cfg.val};
+    root.innerHTML=`
+      <div class="card"><span class="lbl">De</span>
+        <div class="row"><input class="big" id="${root.id}-in" inputmode="decimal" autocomplete="off" aria-label="Valeur à convertir"><select id="${root.id}-from" aria-label="Unité de départ"></select></div></div>
+      <button class="swap" aria-label="Inverser"><svg viewBox="0 0 24 24"><path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/></svg></button>
+      <div class="card"><span class="lbl">Vers</span>
+        <div class="row"><div class="big" id="${root.id}-out" aria-live="polite"></div><select id="${root.id}-to" aria-label="Unité d'arrivée"></select></div></div>
+      <div class="list" id="${root.id}-list"></div>`;
+    const inp=root.querySelector('input'),sf=root.querySelector('#'+root.id+'-from'),stt=root.querySelector('#'+root.id+'-to');
+    cfg.units.forEach(u=>{[sf,stt].forEach(s=>{const o=document.createElement('option');o.value=u.id;o.textContent=opts.code?u.id.toUpperCase()+' · '+u.name:u.name+' ('+u.sym+')';s.appendChild(o);});});
+    sf.value=st.from;stt.value=st.to;inp.value=st.val;
+    const upd=()=>{
+      st.from=sf.value;st.to=stt.value;
+      const u=id=>cfg.units.find(x=>x.id===id);
+      const v=parse(inp.value);
+      const dec=n=>opts.dec!=null?opts.dec:undefined;
+      const base=v==null?null:u(st.from).to(v);
+      root.querySelector('#'+root.id+'-out').textContent=base==null?'—':fmtN(u(st.to).from(base),dec());
+      const list=root.querySelector('.list');list.innerHTML='';
+      cfg.units.forEach(x=>{
+        const b=document.createElement('button');if(x.id===st.to)b.className='cur';
+        b.innerHTML='<span class="n"></span><span class="v"></span>';
+        b.querySelector('.n').textContent=opts.code?x.id.toUpperCase()+' · '+x.name:x.name;
+        b.querySelector('.v').textContent=base==null?'—':fmtN(x.from(base),dec())+' '+x.sym;
+        b.addEventListener('click',()=>{stt.value=x.id;upd();});
+        list.appendChild(b);
+      });
+      opts.onChange&&opts.onChange(st);
+    };
+    inp.addEventListener('input',upd);sf.addEventListener('change',upd);stt.addEventListener('change',upd);
+    root.querySelector('.swap').addEventListener('click',()=>{
+      const a=sf.value;sf.value=stt.value;stt.value=a;
+      const out=root.querySelector('#'+root.id+'-out').textContent;
+      const num=parse(out);if(num!=null&&isFinite(num)&&!/e/.test(out)){inp.value=out;}
+      upd();
+    });
+    upd();
+  }
+  return{mount,state:()=>st};
+}
+
+/* convertisseur d'unités */
+const convRoot=$('#conv');convRoot.id='conv';
+const catChips=$('#cats');
+const convC=Converter(convRoot,null,{});
+let catId=store.get('calc.cat','len');
+function setCat(id){
+  catId=id;store.set('calc.cat',id);
+  catChips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.id===id)));
+  convC.mount(CATS.find(c=>c.id===id));
+}
+CATS.forEach(c=>{const b=document.createElement('button');b.className='chip';b.dataset.id=c.id;b.textContent=c.name;b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>setCat(c.id));catChips.appendChild(b);});
+setCat(CATS.some(c=>c.id===catId)?catId:'len');
+
+/* devises */
+const DEF_RATES={USD:1,EUR:.86,GBP:.75,GNF:8650,XOF:564,XAF:564,MAD:9.2,NGN:1500,CNY:7.1};
+const NAMES={USD:'Dollar américain',EUR:'Euro',GBP:'Livre sterling',GNF:'Franc guinéen',XOF:'FCFA (UEMOA)',XAF:'FCFA (CEMAC)',MAD:'Dirham marocain',NGN:'Naira nigérian',CNY:'Yuan chinois'};
+const SYMS={USD:'$',EUR:'€',GBP:'£',GNF:'GNF',XOF:'F CFA',XAF:'F CFA',MAD:'MAD',NGN:'₦',CNY:'¥'};
+let rates=Object.assign({},DEF_RATES,store.get('calc.rates',{}));
+function curCfg(){
+  return{from:'USD',to:'GNF',val:'100',units:Object.keys(DEF_RATES).map(c=>({id:c,name:NAMES[c],sym:SYMS[c],to:x=>x/rates[c],from:b=>b*rates[c]}))};
+}
+const curRoot=$('#cur');curRoot.id='cur-conv';
+let curState=null;
+const curC=Converter(curRoot,null,{code:true,dec:2,onChange:s=>{curState=s;}});
+function mountCur(keep){
+  const cfg=curCfg();
+  if(keep&&curState){cfg.from=curState.from;cfg.to=curState.to;cfg.val=curState.val;}
+  curC.mount(cfg);
+}
+function buildRates(){
+  const box=$('#rates');box.innerHTML='';
+  Object.keys(DEF_RATES).filter(c=>c!=='USD').forEach(c=>{
+    const l=document.createElement('label');l.innerHTML='<span>1 USD =</span><input class="in" inputmode="decimal" aria-label="Taux '+c+'"><b style="width:3em;color:var(--fg)">'+c+'</b>';
+    const i=l.querySelector('input');i.value=String(rates[c]).replace('.',',');
+    i.addEventListener('input',()=>{const v=parse(i.value);if(v&&v>0){rates[c]=v;const diff={};Object.keys(rates).forEach(k=>{if(rates[k]!==DEF_RATES[k])diff[k]=rates[k];});store.set('calc.rates',diff);
+      const cs=curC.state();if(cs){const inp=curRoot.querySelector('input');curState.val=inp.value;}mountCur(true);}});
+    box.appendChild(l);
+  });
+}
+$('#rates-reset').addEventListener('click',()=>{rates=Object.assign({},DEF_RATES);store.set('calc.rates',{});buildRates();mountCur(true);});
+mountCur(false);buildRates();
+
+/* ---------- outils ---------- */
+const P=(v,i)=>v[i];
+const TOOLS=[
+ {id:'pct',name:'% de',desc:'Calculer un pourcentage d\'un montant.',fields:[{k:'x',l:'Pourcentage',v:'15',s:'%'},{k:'y',l:'Montant',v:'80000'}],
+   out:v=>[{l:'Résultat',v:v.x*v.y/100,main:1},{l:'Montant moins ce pourcentage',v:v.y-v.x*v.y/100},{l:'Montant plus ce pourcentage',v:v.y+v.x*v.y/100}]},
+ {id:'var',name:'Variation',desc:'Hausse ou baisse entre deux valeurs.',fields:[{k:'a',l:'Valeur de départ',v:'1200'},{k:'b',l:'Valeur d\'arrivée',v:'1500'}],
+   out:v=>[{l:'Variation',v:(v.b-v.a)/v.a*100,s:' %',main:1,dec:2},{l:'Écart',v:v.b-v.a}]},
+ {id:'part',name:'Part',desc:'Quelle part représente une valeur dans un total.',fields:[{k:'a',l:'Valeur',v:'45'},{k:'b',l:'Total',v:'180'}],
+   out:v=>[{l:'Part du total',v:v.a/v.b*100,s:' %',main:1,dec:2}]},
+ {id:'tva',name:'TVA',desc:'Passer du hors taxe au TTC, ou l\'inverse.',fields:[{k:'m',l:'Montant',v:'100000',full:1},{k:'t',l:'Taux de TVA',v:'18',s:'%'},{k:'w',l:'Sens',sel:[['ht','HT vers TTC'],['ttc','TTC vers HT']],v:'ht'}],
+   out:v=>{const r=v.t/100;const ht=v.w==='ht'?v.m:v.m/(1+r);const ttc=ht*(1+r);return[{l:v.w==='ht'?'Montant TTC':'Montant hors taxe',v:v.w==='ht'?ttc:ht,main:1},{l:'Hors taxe',v:ht},{l:'TVA',v:ttc-ht},{l:'TTC',v:ttc}];}},
+ {id:'rem',name:'Remise',desc:'Prix final après une réduction.',fields:[{k:'p',l:'Prix initial',v:'250000'},{k:'r',l:'Remise',v:'15',s:'%'}],
+   out:v=>[{l:'Prix final',v:v.p*(1-v.r/100),main:1},{l:'Économie',v:v.p*v.r/100}]},
+ {id:'pret',name:'Prêt',desc:'Mensualité d\'un prêt à taux fixe.',fields:[{k:'c',l:'Capital emprunté',v:'5000000',full:1},{k:'t',l:'Taux annuel',v:'12',s:'%'},{k:'n',l:'Durée',v:'24',s:'mois'}],
+   out:v=>{const i=v.t/1200,n=v.n;const m=i===0?v.c/n:v.c*i/(1-Math.pow(1+i,-n));return[{l:'Mensualité',v:m,main:1},{l:'Total remboursé',v:m*n},{l:'Coût du crédit',v:m*n-v.c}];}},
+ {id:'part2',name:'Partage',desc:'Répartir une addition entre plusieurs personnes.',fields:[{k:'t',l:'Total',v:'185000',full:1},{k:'p',l:'Pourboire',v:'10',s:'%'},{k:'n',l:'Personnes',v:'4'}],
+   out:v=>{const tip=v.t*v.p/100;return[{l:'Par personne',v:(v.t+tip)/v.n,main:1},{l:'Pourboire',v:tip},{l:'Total avec pourboire',v:v.t+tip}];}}
+];
+let toolId=store.get('calc.tool','pct');
+const toolChips=$('#tool-chips'),toolBox=$('#tool');
+TOOLS.forEach(t=>{const b=document.createElement('button');b.className='chip';b.dataset.id=t.id;b.textContent=t.name;b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>setTool(t.id));toolChips.appendChild(b);});
+function setTool(id){
+  toolId=TOOLS.some(t=>t.id===id)?id:'pct';store.set('calc.tool',toolId);
+  const t=TOOLS.find(x=>x.id===toolId);
+  toolChips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.id===toolId)));
+  toolBox.innerHTML='<p class="sub" style="margin:0 0 4px">'+t.desc+'</p><div class="fields"></div><div class="outs"></div>';
+  const fb=toolBox.querySelector('.fields'),ob=toolBox.querySelector('.outs');
+  const els={};
+  t.fields.forEach(f=>{
+    const d=document.createElement('div');d.className='field'+(f.full?' full':'');
+    const id='tf-'+t.id+'-'+f.k;
+    d.innerHTML='<label class="lbl" for="'+id+'">'+f.l+'</label>';
+    let el;
+    if(f.sel){el=document.createElement('select');el.style.maxWidth='100%';f.sel.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;el.appendChild(o);});el.value=f.v;d.appendChild(el);}
+    else{const w=document.createElement('div');w.className='wrap';el=document.createElement('input');el.className='in';el.inputMode='decimal';el.value=f.v;if(f.s){el.style.paddingRight=(f.s.length*9+22)+'px';w.innerHTML='<span class="suf">'+f.s+'</span>';}w.prepend(el);d.appendChild(w);}
+    el.id=id;el.addEventListener('input',calc);el.addEventListener('change',calc);els[f.k]=[el,f];fb.appendChild(d);
+  });
+  function calc(){
+    const v={};let ok=true;
+    for(const k in els){const[el,f]=els[k];if(f.sel)v[k]=el.value;else{const n=parse(el.value);if(n==null)ok=false;v[k]=n;}}
+    ob.innerHTML='';
+    const rows=ok?t.out(v):null;
+    (rows||t.out(Object.fromEntries(Object.keys(els).map(k=>[k,NaN])))).forEach(r=>{
+      const d=document.createElement('div');d.className='out'+(r.main?' main':'');
+      d.innerHTML='<span class="n"></span><span class="v"></span>';
+      d.querySelector('.n').textContent=r.l;
+      d.querySelector('.v').textContent=(ok&&isFinite(r.v))?fmtN(r.v,r.dec!=null?r.dec:2)+(r.s||''):'—';
+      ob.appendChild(d);
+    });
+  }
+  calc();
+}
+setTool(toolId);
+
+/* ---------- démarrage ---------- */
+setMode(store.get('calc.sci',false));
+render();
+const t0=store.get('calc.tab','calc');showTab(['calc','conv','cur','tools'].includes(t0)?t0:'calc');
+})();
+</script>
+<script>
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
+}
+</script>
+
+</body>
+</html>
