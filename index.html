@@ -24,19 +24,19 @@
   --bg:#e7eaf0; --glow:#ffffff; --fg:#141926; --fg2:#586177; --fg3:#8a93a6;
   --surface:rgba(255,255,255,.7); --line:rgba(20,30,50,.10); --hi:rgba(255,255,255,.95); --shadow:rgba(30,40,70,.28);
   --key-a:#ffffff; --key-b:#f0f2f8; --fn-a:#dde2ec; --fn-b:#cdd4e2;
-  --accent:#9a6b12; --eq-a:#f4d684; --eq-b:#c0903a; --eq-ink:#2a1c05; --danger:#c43d3d;
+  --accent:#9a6b12; --chip:rgba(154,107,18,.1); --sheet:rgba(247,248,252,.94); --eq-a:#f4d684; --eq-b:#c0903a; --eq-ink:#2a1c05; --danger:#c43d3d;
   --f-display:'Sora','Helvetica Neue',Arial,sans-serif; --f-body:'Manrope','Helvetica Neue',Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#090b10; --glow:#1b2436; --fg:#eef1f7; --fg2:#8d97ab; --fg3:#5d6678;
   --surface:rgba(255,255,255,.05); --line:rgba(255,255,255,.09); --hi:rgba(255,255,255,.09); --shadow:rgba(0,0,0,.65);
   --key-a:#242a39; --key-b:#171b26; --fn-a:#344056; --fn-b:#222b3c;
-  --accent:#e8c46c; --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}}
+  --accent:#e8c46c; --chip:rgba(232,196,108,.1); --sheet:rgba(20,25,38,.94); --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#090b10; --glow:#1b2436; --fg:#eef1f7; --fg2:#8d97ab; --fg3:#5d6678;
   --surface:rgba(255,255,255,.05); --line:rgba(255,255,255,.09); --hi:rgba(255,255,255,.09); --shadow:rgba(0,0,0,.65);
   --key-a:#242a39; --key-b:#171b26; --fn-a:#344056; --fn-b:#222b3c;
-  --accent:#e8c46c; --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}
+  --accent:#e8c46c; --chip:rgba(232,196,108,.1); --sheet:rgba(20,25,38,.94); --eq-a:#f6dc92; --eq-b:#b8873a; --eq-ink:#2a1c05; --danger:#ff7b7b; color-scheme:dark}
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -108,9 +108,10 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
   transform:translateY(-8px);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s}
 .sheet.open{opacity:1;transform:none;pointer-events:auto}
 .sheet header{display:flex;justify-content:space-between;align-items:center}
-.sheet ul{list-style:none;margin:0;padding:0;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:2px}
-.sheet li button{width:100%;text-align:right;padding:10px 6px;border-radius:12px;display:flex;flex-direction:column;gap:2px;align-items:flex-end}
-.sheet li button:active{background:var(--line)}
+.sheet ul{list-style:none;margin:0;padding:0;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;scrollbar-width:none}
+.sheet li button{width:100%;text-align:right;padding:12px 14px;border-radius:18px;display:flex;flex-direction:column;gap:2px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);transition:transform .12s}
+.sheet .d{font-size:.7rem;color:var(--fg3);margin-top:2px}
+.sheet li button:active{transform:scale(.985)}
 .sheet .e{color:var(--fg2);font-size:.85rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .sheet .r{font:300 1.5rem var(--f-display);font-variant-numeric:tabular-nums}
 .empty{margin:auto;text-align:center;color:var(--fg2);max-width:26ch;line-height:1.5}
@@ -138,19 +139,44 @@ select{max-width:46%;appearance:none;-webkit-appearance:none;padding-right:26px;
 .swap{align-self:center;width:42px;height:42px;margin:-14px 0;z-index:1;border-radius:50%;display:grid;place-items:center;color:var(--eq-ink);background:linear-gradient(135deg,var(--eq-a),var(--eq-b));box-shadow:0 8px 18px -8px var(--eq-b);transition:transform .3s}
 .swap:active{transform:rotate(180deg) scale(.92)}
 .lbl{font-size:.74rem;font-weight:600;color:var(--fg2)}
-.list{display:flex;flex-direction:column;margin-top:12px}
-.list button{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);text-align:left;min-width:0}
-.list button:last-child{border-bottom:0}
-.list .n{color:var(--fg2);font-size:.88rem}
-.list .v{font:400 1rem var(--f-display);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.list button.cur .n,.list button.cur .v{color:var(--accent)}
+.sec{margin:18px 4px 0}
+.list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.list button{display:flex;align-items:center;gap:12px;padding:9px 14px 9px 9px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-align:left;min-width:0;transition:transform .12s,border-color .2s}
+.list button:active{transform:scale(.985)}
+.list .n{flex:1;min-width:0;color:var(--fg2);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .v{max-width:55%;font:400 1.02rem var(--f-display);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.list button.cur{border-color:var(--accent);background:var(--chip)}
+.list button.cur .n{color:var(--fg)}
+.mono{flex:none;min-width:36px;height:32px;padding:0 7px;border-radius:11px;display:grid;place-items:center;font:500 .72rem var(--f-display);letter-spacing:.02em;color:var(--accent);background:var(--chip);border:1px solid var(--line);white-space:nowrap}
+.pick{display:flex;align-items:center;gap:8px;max-width:54%;padding:6px 10px 6px 6px;border-radius:16px;background:linear-gradient(180deg,var(--key-a),var(--key-b));border:1px solid var(--line);box-shadow:inset 0 1px 0 var(--hi);font-weight:600;font-size:.84rem;min-width:0;transition:transform .12s}
+.pick:active{transform:scale(.96)}
+.pick .pn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick svg{width:14px;height:14px;flex:none;color:var(--fg2)}
+.pk-back{position:fixed;inset:0;z-index:50;background:rgba(3,5,10,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .22s}
+.pk-back.open{opacity:1;pointer-events:auto}
+.pk{position:fixed;left:0;right:0;bottom:0;z-index:51;max-width:440px;margin:0 auto;max-height:80%;display:flex;flex-direction:column;border-radius:28px 28px 0 0;background:var(--sheet);border:1px solid var(--line);border-bottom:0;box-shadow:0 -20px 50px -20px var(--shadow);backdrop-filter:blur(30px) saturate(1.4);-webkit-backdrop-filter:blur(30px) saturate(1.4);transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.8,.2,1);padding:10px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.pk.open{transform:none}
+.pk .grab{width:40px;height:4px;border-radius:4px;background:var(--fg3);opacity:.5;margin:2px auto 12px;flex:none}
+.pk h2{font:500 1rem var(--f-display);margin:0 4px 10px;flex:none}
+.pk .find{width:100%;margin-bottom:10px;font-size:.95rem;user-select:text;-webkit-user-select:text;flex:none}
+.pk ul{list-style:none;margin:0;padding:0 0 4px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;scrollbar-width:none}
+.pk ul::-webkit-scrollbar{display:none}
+.opt{display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px 9px 9px;border-radius:18px;text-align:left;border:1px solid var(--line);background:var(--surface);transition:transform .12s,border-color .2s}
+.opt:active{transform:scale(.985)}
+.opt .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.opt .t b{font-weight:600;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt .t small{color:var(--fg2);font-size:.74rem}
+.opt[aria-selected="true"]{border-color:var(--accent);background:var(--chip)}
+.opt .ck{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--eq-a),var(--eq-b));color:var(--eq-ink)}
+.opt .ck svg{width:12px;height:12px;stroke-width:2.4}
+.seg.full{display:flex}.seg.full button{flex:1}
 details{margin-top:14px}
 summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var(--accent);padding:6px 0;list-style:none}
 summary::-webkit-details-marker{display:none}
 .rates{display:grid;gap:8px;margin-top:8px}
-.rates label{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--fg2)}
+.rates label{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 8px;border-radius:18px;background:var(--surface);border:1px solid var(--line);font-size:.82rem;color:var(--fg2)}
 .rates .in{flex:1;text-align:right;font-variant-numeric:tabular-nums;user-select:text;-webkit-user-select:text}
-.rates span{width:4.6em;flex:none}
+.rates .rl{flex:none}
 .note{font-size:.76rem;color:var(--fg3);line-height:1.5;margin:8px 0 0}
 .field{display:flex;flex-direction:column;gap:5px}
 .field .in{width:100%;font-size:1.05rem;font-family:var(--f-display);font-weight:400;user-select:text;-webkit-user-select:text}
@@ -338,6 +364,7 @@ function render(){
     }
   }
   resEl.textContent=r;
+  store.set('calc.state',{expr:S.expr,done:S.done,ans:S.ans,deg:S.deg});
   requestAnimationFrame(()=>{exprEl.scrollLeft=exprEl.scrollWidth;});
 }
 function startFrom(tok){
@@ -382,7 +409,7 @@ function equals(){
   try{
     const v=evaluate(S.expr,S.deg);
     const e=fmtExpr(S.expr).replace(/\./g,',');
-    S.hist.unshift({e,r:fmtCalc(v),raw:rawNum(v)});S.hist=S.hist.slice(0,60);store.set('calc.hist',S.hist);
+    S.hist.unshift({e,r:fmtCalc(v),raw:rawNum(v),t:Date.now()});S.hist=S.hist.slice(0,60);store.set('calc.hist',S.hist);
     S.ans=rawNum(v);S.done=true;render();
     const eq=document.querySelector('.k.eq');eq.classList.remove('flash');void eq.offsetWidth;eq.classList.add('flash');
     setTimeout(()=>eq.classList.remove('flash'),600);
@@ -434,8 +461,9 @@ function renderHist(){
   if(!S.hist.length){ul.innerHTML='<li class="empty">Vos calculs apparaîtront ici. Touchez un résultat pour le réutiliser.</li>';return;}
   S.hist.forEach(h=>{
     const li=document.createElement('li');const b=document.createElement('button');
-    b.innerHTML='<span class="e"></span><span class="r"></span>';
+    b.innerHTML='<span class="e"></span><span class="r"></span><span class="d"></span>';
     b.querySelector('.e').textContent=h.e+' =';b.querySelector('.r').textContent=h.r;
+    if(h.t){try{b.querySelector('.d').textContent=new Date(h.t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}}
     b.addEventListener('click',()=>{S.expr=h.raw;S.done=false;render();closeHist();});
     li.appendChild(b);ul.appendChild(li);
   });
@@ -459,6 +487,41 @@ document.addEventListener('keydown',e=>{
   else if(k==='Backspace')backspace();else if(k==='Escape')clearAll();
 });
 
+/* ---------- sélecteur (feuille du bas) ---------- */
+const Picker=(function(){
+  const back=document.createElement('div');back.className='pk-back';
+  const box=document.createElement('div');box.className='pk';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Choisir');
+  box.innerHTML='<div class="grab"></div><h2></h2><input class="in find" type="search" placeholder="Rechercher" aria-label="Rechercher" hidden><ul></ul>';
+  document.body.appendChild(back);document.body.appendChild(box);
+  const h2=box.querySelector('h2'),find=box.querySelector('.find'),ul=box.querySelector('ul');
+  const CK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+  let cur=null;
+  function close(){back.classList.remove('open');box.classList.remove('open');cur=null;}
+  function draw(){
+    const q=find.value.trim().toLowerCase();ul.innerHTML='';
+    const items=cur.options.filter(o=>!q||(o.title+' '+o.mono+' '+(o.sub||'')).toLowerCase().includes(q));
+    if(!items.length){ul.innerHTML='<li class="empty" style="padding:18px 0">Aucun résultat.</li>';return;}
+    items.forEach(o=>{
+      const li=document.createElement('li'),b=document.createElement('button');
+      const on=o.id===cur.value;
+      b.type='button';b.className='opt';b.setAttribute('role','option');b.setAttribute('aria-selected',String(on));
+      b.innerHTML='<span class="mono"></span><span class="t"><b></b><small></small></span>'+(on?'<span class="ck">'+CK+'</span>':'');
+      b.querySelector('.mono').textContent=o.mono;b.querySelector('b').textContent=o.title;b.querySelector('small').textContent=o.sub||'';
+      b.addEventListener('click',()=>{buzz();const f=cur.onPick;close();f(o.id);});
+      li.appendChild(b);ul.appendChild(li);
+    });
+  }
+  function open(o){
+    cur=o;h2.textContent=o.title;find.hidden=!o.search;find.value='';draw();
+    back.classList.add('open');box.classList.add('open');
+    setTimeout(()=>{const s=ul.querySelector('[aria-selected="true"]');if(s)s.scrollIntoView({block:'center'});},60);
+  }
+  back.addEventListener('click',close);
+  find.addEventListener('input',()=>{if(cur)draw();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  return{open,close};
+})();
+
 /* ---------- convertisseur générique ---------- */
 function lin(id,name,sym,f){return{id,name,sym,to:x=>x*f,from:b=>b/f};}
 const CATS=[
@@ -479,41 +542,46 @@ const parse=s=>{const v=parseFloat(String(s).replace(/\s/g,'').replace(',','.'))
 function Converter(root,getCfg,opts){
   opts=opts||{};
   let st=null;
+  const mono=u=>opts.code?u.id.toUpperCase():u.sym;
+  const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   function mount(cfg){
     st={cfg,from:cfg.from,to:cfg.to,val:cfg.val};
-    root.innerHTML=`
-      <div class="card"><span class="lbl">De</span>
-        <div class="row"><input class="big" id="${root.id}-in" inputmode="decimal" autocomplete="off" aria-label="Valeur à convertir"><select id="${root.id}-from" aria-label="Unité de départ"></select></div></div>
-      <button class="swap" aria-label="Inverser"><svg viewBox="0 0 24 24"><path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/></svg></button>
-      <div class="card"><span class="lbl">Vers</span>
-        <div class="row"><div class="big" id="${root.id}-out" aria-live="polite"></div><select id="${root.id}-to" aria-label="Unité d'arrivée"></select></div></div>
-      <div class="list" id="${root.id}-list"></div>`;
-    const inp=root.querySelector('input'),sf=root.querySelector('#'+root.id+'-from'),stt=root.querySelector('#'+root.id+'-to');
-    cfg.units.forEach(u=>{[sf,stt].forEach(s=>{const o=document.createElement('option');o.value=u.id;o.textContent=opts.code?u.id.toUpperCase()+' · '+u.name:u.name+' ('+u.sym+')';s.appendChild(o);});});
-    sf.value=st.from;stt.value=st.to;inp.value=st.val;
-    const upd=()=>{
-      st.from=sf.value;st.to=stt.value;
-      const u=id=>cfg.units.find(x=>x.id===id);
-      const v=parse(inp.value);
-      const dec=n=>opts.dec!=null?opts.dec:undefined;
-      const base=v==null?null:u(st.from).to(v);
-      root.querySelector('#'+root.id+'-out').textContent=base==null?'—':fmtN(u(st.to).from(base),dec());
-      const list=root.querySelector('.list');list.innerHTML='';
+    const rid=root.id;
+    root.innerHTML='<div class="card"><span class="lbl">De</span><div class="row"><input class="big" id="'+rid+'-in" inputmode="decimal" autocomplete="off" aria-label="Valeur à convertir"><button type="button" class="pick" id="'+rid+'-from" aria-label="Choisir l\'unité de départ"></button></div></div>'
+     +'<button class="swap" aria-label="Inverser"><svg viewBox="0 0 24 24"><path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/></svg></button>'
+     +'<div class="card"><span class="lbl">Vers</span><div class="row"><div class="big" id="'+rid+'-out" aria-live="polite"></div><button type="button" class="pick" id="'+rid+'-to" aria-label="Choisir l\'unité d\'arrivée"></button></div></div>'
+     +'<div class="lbl sec">'+(opts.code?'Toutes les devises':'Toutes les unités')+'</div><div class="list"></div>';
+    const inp=root.querySelector('input'),bf=root.querySelector('#'+rid+'-from'),bt=root.querySelector('#'+rid+'-to'),out=root.querySelector('#'+rid+'-out'),list=root.querySelector('.list');
+    inp.value=st.val;
+    const U=id=>cfg.units.find(x=>x.id===id);
+    const paint=(b,u)=>{b.innerHTML='<span class="mono"></span><span class="pn"></span>'+CHEV;b.querySelector('.mono').textContent=mono(u);b.querySelector('.pn').textContent=u.name;};
+    const choose=(which,title)=>()=>Picker.open({title,search:cfg.units.length>6,value:st[which],
+      options:cfg.units.map(u=>({id:u.id,mono:mono(u),title:u.name,sub:opts.code?u.sym:'Unité : '+u.sym})),
+      onPick:id=>{st[which]=id;upd();}});
+    bf.addEventListener('click',choose('from','Convertir depuis'));
+    bt.addEventListener('click',choose('to','Convertir vers'));
+    function upd(){
+      st.val=inp.value;
+      const v=parse(inp.value),uf=U(st.from),ut=U(st.to);
+      paint(bf,uf);paint(bt,ut);
+      const base=v==null?null:uf.to(v);
+      out.textContent=base==null?'—':fmtN(ut.from(base),opts.dec);
+      list.innerHTML='';
       cfg.units.forEach(x=>{
-        const b=document.createElement('button');if(x.id===st.to)b.className='cur';
-        b.innerHTML='<span class="n"></span><span class="v"></span>';
-        b.querySelector('.n').textContent=opts.code?x.id.toUpperCase()+' · '+x.name:x.name;
-        b.querySelector('.v').textContent=base==null?'—':fmtN(x.from(base),dec())+' '+x.sym;
-        b.addEventListener('click',()=>{stt.value=x.id;upd();});
+        const b=document.createElement('button');b.type='button';if(x.id===st.to)b.className='cur';
+        b.innerHTML='<span class="mono"></span><span class="n"></span><span class="v"></span>';
+        b.querySelector('.mono').textContent=mono(x);b.querySelector('.n').textContent=x.name;
+        b.querySelector('.v').textContent=base==null?'—':fmtN(x.from(base),opts.dec)+' '+x.sym;
+        b.addEventListener('click',()=>{st.to=x.id;upd();});
         list.appendChild(b);
       });
       opts.onChange&&opts.onChange(st);
-    };
-    inp.addEventListener('input',upd);sf.addEventListener('change',upd);stt.addEventListener('change',upd);
+    }
+    inp.addEventListener('input',upd);
     root.querySelector('.swap').addEventListener('click',()=>{
-      const a=sf.value;sf.value=stt.value;stt.value=a;
-      const out=root.querySelector('#'+root.id+'-out').textContent;
-      const num=parse(out);if(num!=null&&isFinite(num)&&!/e/.test(out)){inp.value=out;}
+      const a=st.from;st.from=st.to;st.to=a;
+      const o=out.textContent,num=parse(o);
+      if(num!=null&&isFinite(num)&&!/e/.test(o)){inp.value=o;}
       upd();
     });
     upd();
@@ -553,7 +621,7 @@ function mountCur(keep){
 function buildRates(){
   const box=$('#rates');box.innerHTML='';
   Object.keys(DEF_RATES).filter(c=>c!=='USD').forEach(c=>{
-    const l=document.createElement('label');l.innerHTML='<span>1 USD =</span><input class="in" inputmode="decimal" aria-label="Taux '+c+'"><b style="width:3em;color:var(--fg)">'+c+'</b>';
+    const l=document.createElement('label');l.innerHTML='<span class="mono">'+c+'</span><span class="rl">1 USD =</span><input class="in" inputmode="decimal" aria-label="Taux '+c+'">';
     const i=l.querySelector('input');i.value=String(rates[c]).replace('.',',');
     i.addEventListener('input',()=>{const v=parse(i.value);if(v&&v>0){rates[c]=v;const diff={};Object.keys(rates).forEach(k=>{if(rates[k]!==DEF_RATES[k])diff[k]=rates[k];});store.set('calc.rates',diff);
       const cs=curC.state();if(cs){const inp=curRoot.querySelector('input');curState.val=inp.value;}mountCur(true);}});
@@ -596,13 +664,13 @@ function setTool(id){
     const id='tf-'+t.id+'-'+f.k;
     d.innerHTML='<label class="lbl" for="'+id+'">'+f.l+'</label>';
     let el;
-    if(f.sel){el=document.createElement('select');el.style.maxWidth='100%';f.sel.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;el.appendChild(o);});el.value=f.v;d.appendChild(el);}
+    if(f.sel){el=document.createElement('div');el.className='seg full';el.dataset.v=f.v;f.sel.forEach(([v,n])=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.setAttribute('aria-pressed',String(v===f.v));b.addEventListener('click',()=>{el.dataset.v=v;[...el.children].forEach(c=>c.setAttribute('aria-pressed',String(c===b)));calc();});el.appendChild(b);});d.appendChild(el);}
     else{const w=document.createElement('div');w.className='wrap';el=document.createElement('input');el.className='in';el.inputMode='decimal';el.value=f.v;if(f.s){el.style.paddingRight=(f.s.length*9+22)+'px';w.innerHTML='<span class="suf">'+f.s+'</span>';}w.prepend(el);d.appendChild(w);}
     el.id=id;el.addEventListener('input',calc);el.addEventListener('change',calc);els[f.k]=[el,f];fb.appendChild(d);
   });
   function calc(){
     const v={};let ok=true;
-    for(const k in els){const[el,f]=els[k];if(f.sel)v[k]=el.value;else{const n=parse(el.value);if(n==null)ok=false;v[k]=n;}}
+    for(const k in els){const[el,f]=els[k];if(f.sel)v[k]=el.dataset.v;else{const n=parse(el.value);if(n==null)ok=false;v[k]=n;}}
     ob.innerHTML='';
     const rows=ok?t.out(v):null;
     (rows||t.out(Object.fromEntries(Object.keys(els).map(k=>[k,NaN])))).forEach(r=>{
@@ -618,6 +686,15 @@ function setTool(id){
 setTool(toolId);
 
 /* ---------- démarrage ---------- */
+try{
+  const sv=store.get('calc.state',null);
+  if(sv&&typeof sv.expr==='string'&&/^[\d.+−×÷^!%()a-zπ√E\s-]*$/.test(sv.expr)){
+    S.expr=sv.expr;S.deg=sv.deg!==false;
+    if(sv.done&&typeof sv.ans==='string'&&isFinite(parseFloat(sv.ans))){S.done=true;S.ans=sv.ans;}
+    const dk=$('#k-deg');if(dk)dk.textContent=S.deg?'DEG':'RAD';$('#angle').textContent=S.deg?'DEG':'RAD';
+  }
+}catch(e){}
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 setMode(store.get('calc.sci',false));
 render();
 const t0=store.get('calc.tab','calc');showTab(['calc','conv','cur','tools'].includes(t0)?t0:'calc');
