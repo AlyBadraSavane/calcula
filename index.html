@@ -60,8 +60,8 @@ h1{font:500 1.05rem var(--f-display);margin:0;letter-spacing:-.01em}
 .seg{display:inline-flex;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .seg button{padding:7px 14px;border-radius:999px;font-size:.8rem;font-weight:600;color:var(--fg2);transition:background .2s,color .2s}
 .seg button[aria-pressed="true"]{background:linear-gradient(180deg,var(--key-a),var(--key-b));color:var(--fg);box-shadow:inset 0 1px 0 var(--hi),0 3px 8px -4px var(--shadow)}
-.icons{display:flex;gap:6px}
-.ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--fg2);background:var(--surface);border:1px solid var(--line);transition:transform .15s,color .2s}
+.icons{display:flex;gap:5px}
+.ico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--fg2);background:var(--surface);border:1px solid var(--line);transition:transform .15s,color .2s}
 .ico:active{transform:scale(.92)}
 .ico:hover{color:var(--fg)}
 svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -188,6 +188,37 @@ summary::-webkit-details-marker{display:none}
 .out .v{font:400 1.15rem var(--f-display);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
 .out.main .v{font-size:2rem;font-weight:300;color:var(--accent);letter-spacing:-.03em}
 .out .n{color:var(--fg2);font-size:.85rem}
+/* écrans multiples, décimales, annuler */
+.ico{position:relative}
+.ico:disabled{opacity:.35;pointer-events:none}
+.ico.sm{width:34px;height:34px}.ico.sm svg{width:17px;height:17px}
+.ico.gold{background:linear-gradient(135deg,var(--eq-a),var(--eq-b));color:var(--eq-ink);border-color:transparent}
+.badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:grid;place-items:center;font:600 .64rem var(--f-body);background:linear-gradient(135deg,var(--eq-a),var(--eq-b));color:var(--eq-ink);pointer-events:none}
+.tb{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tb .icons{gap:6px}
+.seg.mini button{padding:6px 12px;font-size:.74rem;font-variant-numeric:tabular-nums}
+.cnt{font:500 .85rem var(--f-display);color:var(--fg2);font-variant-numeric:tabular-nums}
+.bar h1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screens{flex:1 1 0;min-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0 6px;scrollbar-width:none}
+.screens::-webkit-scrollbar{display:none}
+.sc{flex:none;display:flex;flex-direction:column;gap:1px;padding:8px 8px 10px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--line);min-width:0;cursor:pointer;transition:border-color .2s,background .2s}
+.sc.on{border-color:var(--accent);background:var(--chip)}
+.sc-h{display:flex;align-items:center;gap:8px;min-width:0}
+.sc-h .ic{display:grid;color:var(--fg3)}
+.sc.on .sc-h .ic{color:var(--accent)}
+.sc-h svg{width:15px;height:15px}
+.sc-h .nm{flex:1;min-width:0;font-weight:600;font-size:.84rem;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc.on .nm{color:var(--accent)}
+.more{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--fg2)}
+.more:active{background:var(--line)}
+.sc .e,.sc .r{display:block;max-width:100%;align-self:flex-end;text-align:right;font-family:var(--f-display);font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow:hidden;padding-right:6px}
+.sc .e{color:var(--fg2);min-height:1.3em}
+.sc .r{min-height:1.2em}
+.pk.ask{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;border-radius:24px;border-bottom:1px solid var(--line);transform:translateY(-130%);padding-bottom:16px}
+.pk.ask.open{transform:none}
+#p-calc.multi #pad{flex:0 0 auto;grid-template-rows:repeat(5,clamp(40px,6.2vh,52px));gap:8px;min-height:0;max-height:none}
+#p-calc.multi #pad .k{font-size:1.25rem;border-radius:16px}
+#p-calc.multi .screens{min-height:150px}
 @media (max-height:700px){.expr{font-size:2.3rem}.k{font-size:1.3rem}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -199,20 +230,38 @@ summary::-webkit-details-marker{display:none}
 
     <!-- CALCUL -->
     <section class="panel" id="p-calc" role="tabpanel">
-      <div class="bar">
+      <div class="bar" id="bar">
         <div class="seg" role="group" aria-label="Mode">
           <button id="m-std" aria-pressed="true">Standard</button>
           <button id="m-sci" aria-pressed="false">Scientifique</button>
         </div>
         <div class="icons">
+          <button class="ico" id="b-screens" aria-label="Écrans de calcul"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><span class="badge" id="scr-badge">1</span></button>
           <button class="ico" id="b-hist" aria-label="Historique"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
           <button class="ico" id="b-theme" aria-label="Changer de thème"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
         </div>
       </div>
+      <div class="bar" id="bar-multi" hidden>
+        <button class="ico" id="ms-back" aria-label="Retour à la calculatrice"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <h1>Écrans de calcul</h1>
+        <span class="cnt" id="ms-count">1/10</span>
+        <button class="ico gold" id="ms-add" aria-label="Ajouter un écran"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="screens" id="screens" hidden></div>
       <div class="disp" id="disp">
         <span class="angle" id="angle" hidden>DEG</span>
         <div class="expr" id="expr" aria-live="off">0</div>
         <div class="res" id="res" aria-live="polite"></div>
+      </div>
+      <div class="tb">
+        <div class="seg mini" role="group" aria-label="Nombre de décimales">
+          <button id="d2" aria-pressed="true">0,00</button>
+          <button id="d3" aria-pressed="false">0,000</button>
+        </div>
+        <div class="icons">
+          <button class="ico sm" id="b-undo" aria-label="Annuler" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+          <button class="ico sm" id="b-redo" aria-label="Rétablir" disabled><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+        </div>
       </div>
       <div class="sci" id="sci"><div><div class="pad" id="sci-pad"></div></div></div>
       <div class="pad" id="pad"></div>
@@ -319,7 +368,10 @@ function fmtN(n,dec){
 function fmtCalc(n){
   const a=Math.abs(n);
   if(a!==0&&(a<1e-7||a>=1e15))return parseFloat(n.toPrecision(10)).toExponential().replace('e','×10^').replace('.',',').replace('+','');
-  return nf(10).format(parseFloat(n.toPrecision(12)));
+  const v=parseFloat(n.toPrecision(12));
+  const d=Number.isInteger(v)?0:S.dec;
+  const out=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+  return /^[-−]0(,0+)?$/.test(out)?out.replace(/^[-−]/,''):out;
 }
 function rawNum(n){
   const a=Math.abs(n);
@@ -347,7 +399,9 @@ $('#b-theme').addEventListener('click',()=>{
 const savedTheme=store.get('calc.theme',null);if(savedTheme)document.documentElement.dataset.theme=savedTheme;
 
 /* ---------- calculatrice ---------- */
-const S={expr:'',done:false,deg:true,ans:'0',hist:store.get('calc.hist',[])};
+const MAXS=10;
+const S={expr:'',done:false,deg:true,ans:'0',hist:store.get('calc.hist',[]),screens:[],cur:0,seq:1,multi:false,applying:false,dec:(store.get('calc.dec',2)===3?3:2)};
+const mkScreen=(name,o)=>Object.assign({id:Date.now()+Math.random(),name,expr:'',done:false,ans:'0',undo:[],redo:[]},o||{});
 const OPS='+−×÷^';
 const exprEl=$('#expr'),resEl=$('#res'),dispEl=$('#disp');
 
@@ -367,27 +421,140 @@ function fitText(el,max,min){
 }
 function layoutDisplay(){
   if($('#p-calc').hidden)return;
+  if(S.multi){S.screens.forEach((_,k)=>paintCard(k));return;}
   const big=innerHeight<700?37:46;
   if(S.done){fitText(exprEl,17,12);fitText(resEl,big,20);}
   else{fitText(exprEl,big,20);fitText(resEl,22,15);}
 }
-function render(){
-  const shown=S.expr?fmtExpr(S.expr).replace(/\./g,',').replace(/([+−×÷^])/g,'$1\u200b'):'0';
-  exprEl.textContent=shown;
-  dispEl.classList.remove('err');
-  let r='';
-  if(S.done){r=fmtCalc(parseFloat(S.ans));dispEl.classList.add('done');}
-  else{
-    dispEl.classList.remove('done');
-    if(/[+−×÷^!%]|[a-zπ√]/.test(S.expr.replace(/^−/,''))&&!/^[\d.]+$/.test(S.expr)){
-      try{r='= '+fmtCalc(evaluate(S.expr,S.deg));}catch(e){r='';}
-    }
+function resultText(expr,done,ans){
+  if(done)return fmtCalc(parseFloat(ans));
+  if(/[+−×÷^!%]|[a-zπ√]/.test(expr.replace(/^−/,''))&&!/^[\d.]+$/.test(expr)){
+    try{return '= '+fmtCalc(evaluate(expr,S.deg));}catch(e){}
   }
-  resEl.textContent=r;
+  return '';
+}
+const showExpr=e=>e?fmtExpr(e).replace(/\./g,',').replace(/([+−×÷^])/g,'$1​'):'0';
+function saveScreens(){
+  store.set('calc.screens',{cur:S.cur,seq:S.seq,deg:S.deg,screens:S.screens.map(x=>({id:x.id,name:x.name,expr:x.expr,done:x.done,ans:x.ans}))});
+}
+function render(){
+  const sc=S.screens[S.cur];
+  sc.expr=S.expr;sc.done=S.done;sc.ans=S.ans;
+  const key=S.expr+'|'+S.done+'|'+S.ans;
+  if(sc.lastKey!==undefined&&sc.lastKey!==key&&!S.applying){sc.undo.push(sc.lastSnap);if(sc.undo.length>100)sc.undo.shift();sc.redo.length=0;}
+  sc.lastKey=key;sc.lastSnap={expr:S.expr,done:S.done,ans:S.ans};
+  exprEl.textContent=showExpr(S.expr);
+  dispEl.classList.remove('err');dispEl.classList.toggle('done',S.done);
+  resEl.textContent=resultText(S.expr,S.done,S.ans);
   layoutDisplay();
-  store.set('calc.state',{expr:S.expr,done:S.done,ans:S.ans,deg:S.deg});
+  $('#b-undo').disabled=!sc.undo.length;$('#b-redo').disabled=!sc.redo.length;
+  if(S.multi)paintCard(S.cur);
+  $('#scr-badge').textContent=S.screens.length;
+  saveScreens();
   requestAnimationFrame(()=>{exprEl.scrollLeft=exprEl.scrollWidth;});
 }
+
+/* ---------- annuler / rétablir ---------- */
+function applySnap(p){S.applying=true;S.expr=p.expr;S.done=p.done;S.ans=p.ans;render();S.applying=false;}
+function undo(){const sc=S.screens[S.cur];if(!sc.undo.length)return;sc.redo.push({expr:S.expr,done:S.done,ans:S.ans});applySnap(sc.undo.pop());}
+function redo(){const sc=S.screens[S.cur];if(!sc.redo.length)return;sc.undo.push({expr:S.expr,done:S.done,ans:S.ans});applySnap(sc.redo.pop());}
+$('#b-undo').addEventListener('click',()=>{buzz();undo();});
+$('#b-redo').addEventListener('click',()=>{buzz();redo();});
+
+/* ---------- décimales ---------- */
+function setDec(n){
+  S.dec=n===3?3:2;store.set('calc.dec',S.dec);
+  $('#d2').setAttribute('aria-pressed',String(S.dec===2));$('#d3').setAttribute('aria-pressed',String(S.dec===3));
+  render();if(S.multi)S.screens.forEach((_,k)=>paintCard(k));
+}
+$('#d2').addEventListener('click',()=>{buzz();setDec(2);});
+$('#d3').addEventListener('click',()=>{buzz();setDec(3);});
+
+/* ---------- écrans de calcul multiples ---------- */
+const PEN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+const DOT='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>';
+const DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>';
+const scrState=i=>i===S.cur?{expr:S.expr,done:S.done,ans:S.ans}:S.screens[i];
+function paintCard(i){
+  const card=$('#screens').children[i];if(!card)return;
+  const st=scrState(i);
+  card.classList.toggle('on',i===S.cur);
+  card.querySelector('.nm').textContent=S.screens[i].name;
+  card.querySelector('.ic').innerHTML=i===S.cur?PEN:DOT;
+  const e=card.querySelector('.e'),r=card.querySelector('.r');
+  e.textContent=showExpr(st.expr);r.textContent=resultText(st.expr,st.done,st.ans);
+  r.style.color=st.done?'var(--fg)':'var(--fg2)';
+  fitText(e,st.done?14:24,12);fitText(r,st.done?32:18,12);
+}
+function buildScreens(){
+  const box=$('#screens');box.innerHTML='';
+  S.screens.forEach((sc,i)=>{
+    const c=document.createElement('div');c.className='sc';c.setAttribute('role','button');c.tabIndex=0;
+    c.innerHTML='<div class="sc-h"><span class="ic"></span><span class="nm"></span><button type="button" class="more" aria-label="Options de l\'écran">'+DOTS+'</button></div><span class="e"></span><span class="r"></span>';
+    c.addEventListener('click',ev=>{if(ev.target.closest('.more'))return;buzz();selectScreen(i);});
+    c.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target===c){ev.preventDefault();selectScreen(i);}});
+    c.querySelector('.more').addEventListener('click',ev=>{ev.stopPropagation();screenMenu(i);});
+    box.appendChild(c);
+  });
+  S.screens.forEach((_,i)=>paintCard(i));
+  $('#ms-count').textContent=S.screens.length+'/'+MAXS;
+  $('#ms-add').disabled=S.screens.length>=MAXS;
+  $('#scr-badge').textContent=S.screens.length;
+  const on=box.children[S.cur];if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});
+}
+function loadCur(){const a=S.screens[S.cur];S.expr=a.expr;S.done=a.done;S.ans=a.ans;}
+function selectScreen(i){
+  if(i===S.cur||!S.screens[i])return;
+  S.cur=i;loadCur();render();
+  if(S.multi)S.screens.forEach((_,k)=>paintCard(k));
+}
+function addScreen(){
+  if(S.screens.length>=MAXS)return;
+  S.seq=Math.max(S.seq,S.screens.length)+1;
+  S.screens.push(mkScreen('Écran '+S.seq));
+  S.cur=S.screens.length-1;loadCur();render();buildScreens();
+  const box=$('#screens');box.scrollTop=box.scrollHeight;
+}
+function screenMenu(i){
+  const sc=S.screens[i];
+  const opts=[
+    {id:'ren',mono:'Aa',title:'Renommer',sub:'Changer le nom de cet écran'},
+    {id:'dup',mono:'×2',title:'Dupliquer',sub:S.screens.length>=MAXS?'Limite de '+MAXS+' écrans atteinte':'Copier ce calcul dans un nouvel écran'},
+    {id:'clr',mono:'AC',title:'Vider',sub:'Effacer le calcul de cet écran'}];
+  if(S.screens.length>1)opts.push({id:'del',mono:'✕',title:'Supprimer',sub:'Retirer cet écran'});
+  Picker.open({title:sc.name,options:opts,value:null,onPick:id=>{
+    if(id==='ren'){Picker.ask({title:'Renommer l\'écran',value:sc.name,label:'Enregistrer',onSubmit:v=>{v=(v||'').trim().slice(0,30);if(v)sc.name=v;paintCard(i);saveScreens();}});}
+    else if(id==='dup'){
+      if(S.screens.length>=MAXS)return;
+      const st=scrState(i);
+      S.screens.splice(i+1,0,mkScreen(sc.name+' (copie)',{expr:st.expr,done:st.done,ans:st.ans}));
+      if(i<S.cur)S.cur++;
+      buildScreens();saveScreens();
+    }
+    else if(id==='clr'){selectScreen(i);S.expr='';S.done=false;render();}
+    else if(id==='del'){
+      Picker.open({title:'Supprimer « '+sc.name+' » ?',value:null,options:[
+        {id:'y',mono:'✕',title:'Supprimer',sub:'Cette action est définitive'},
+        {id:'n',mono:'↩',title:'Annuler',sub:'Garder cet écran'}],
+        onPick:ans=>{
+          if(ans!=='y'||S.screens.length<2)return;
+          const was=i===S.cur;S.screens.splice(i,1);
+          if(i<S.cur)S.cur--;else if(was)S.cur=Math.min(i,S.screens.length-1);
+          loadCur();render();buildScreens();
+        }});
+    }
+  }});
+}
+function setMulti(on){
+  S.multi=on;$('#p-calc').classList.toggle('multi',on);
+  $('#bar').hidden=on;$('#bar-multi').hidden=!on;$('#screens').hidden=!on;$('#disp').hidden=on;$('#sci').hidden=on;
+  if(on)buildScreens();else requestAnimationFrame(layoutDisplay);
+  store.set('calc.multi',on);
+}
+$('#b-screens').addEventListener('click',()=>{buzz();setMulti(true);});
+$('#ms-back').addEventListener('click',()=>{buzz();setMulti(false);});
+$('#ms-add').addEventListener('click',()=>{buzz();addScreen();});
+
 function startFrom(tok){
   if(!S.done)return;
   if(OPS.includes(tok)||tok==='!'||tok==='%')S.expr=S.ans;else S.expr='';
@@ -465,7 +632,7 @@ function build(host,list){
   });
 }
 build($('#pad'),MAIN);build($('#sci-pad'),SCI);
-function toggleDeg(){S.deg=!S.deg;$('#k-deg').textContent=S.deg?'DEG':'RAD';$('#angle').textContent=S.deg?'DEG':'RAD';if(S.done){/* résultat figé */}else render();}
+function toggleDeg(){S.deg=!S.deg;$('#k-deg').textContent=S.deg?'DEG':'RAD';$('#angle').textContent=S.deg?'DEG':'RAD';if(S.done){/* résultat figé */}else render();saveScreens();}
 
 /* mode */
 function setMode(sci){
@@ -483,7 +650,7 @@ function renderHist(){
   S.hist.forEach(h=>{
     const li=document.createElement('li');const b=document.createElement('button');
     b.innerHTML='<span class="e"></span><span class="r"></span><span class="d"></span>';
-    b.querySelector('.e').textContent=h.e+' =';b.querySelector('.r').textContent=h.r;
+    b.querySelector('.e').textContent=h.e+' =';b.querySelector('.r').textContent=(h.raw!=null&&isFinite(parseFloat(h.raw)))?fmtCalc(parseFloat(h.raw)):h.r;
     if(h.t){try{b.querySelector('.d').textContent=new Date(h.t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}}
     b.addEventListener('click',()=>{S.expr=h.raw;S.done=false;render();closeHist();});
     li.appendChild(b);ul.appendChild(li);
@@ -516,8 +683,8 @@ const Picker=(function(){
   document.body.appendChild(back);document.body.appendChild(box);
   const h2=box.querySelector('h2'),find=box.querySelector('.find'),ul=box.querySelector('ul');
   const CK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
-  let cur=null;
-  function close(){back.classList.remove('open');box.classList.remove('open');cur=null;}
+  let cur=null,askSubmit=null;
+  function close(){back.classList.remove('open');box.classList.remove('open');cur=null;askSubmit=null;}
   function draw(){
     const q=find.value.trim().toLowerCase();ul.innerHTML='';
     const items=cur.options.filter(o=>!q||(o.title+' '+o.mono+' '+(o.sub||'')).toLowerCase().includes(q));
@@ -533,14 +700,29 @@ const Picker=(function(){
     });
   }
   function open(o){
-    cur=o;h2.textContent=o.title;find.hidden=!o.search;find.value='';draw();
+    cur=o;askSubmit=null;box.classList.remove('ask');find.type='search';find.removeAttribute('maxlength');find.placeholder='Rechercher';
+    h2.textContent=o.title;find.hidden=!o.search;find.value='';draw();
     back.classList.add('open');box.classList.add('open');
     setTimeout(()=>{const s=ul.querySelector('[aria-selected="true"]');if(s)s.scrollIntoView({block:'center'});},60);
   }
   back.addEventListener('click',close);
   find.addEventListener('input',()=>{if(cur)draw();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
-  return{open,close};
+  function ask(o){
+    cur=null;box.classList.add('ask');
+    h2.textContent=o.title;find.hidden=false;find.type='text';find.maxLength=30;find.placeholder='Nom';find.value=o.value||'';
+    ul.innerHTML='';
+    const li=document.createElement('li'),b=document.createElement('button');
+    b.type='button';b.className='opt';b.innerHTML='<span class="mono">OK</span><span class="t"><b></b></span>';
+    b.querySelector('b').textContent=o.label||'Enregistrer';
+    const submit=()=>{const v=find.value;close();o.onSubmit(v);};
+    b.addEventListener('click',submit);li.appendChild(b);ul.appendChild(li);
+    askSubmit=submit;
+    back.classList.add('open');box.classList.add('open');
+    setTimeout(()=>{try{find.focus();find.select();}catch(e){}},330);
+  }
+  find.addEventListener('keydown',e=>{if(e.key==='Enter'&&askSubmit){e.preventDefault();askSubmit();}});
+  return{open,close,ask};
 })();
 
 /* ---------- convertisseur générique ---------- */
@@ -708,16 +890,24 @@ setTool(toolId);
 
 /* ---------- démarrage ---------- */
 try{
-  const sv=store.get('calc.state',null);
-  if(sv&&typeof sv.expr==='string'&&/^[\d.+−×÷^!%()a-zπ√E\s-]*$/.test(sv.expr)){
-    S.expr=sv.expr;S.deg=sv.deg!==false;
-    if(sv.done&&typeof sv.ans==='string'&&isFinite(parseFloat(sv.ans))){S.done=true;S.ans=sv.ans;}
-    const dk=$('#k-deg');if(dk)dk.textContent=S.deg?'DEG':'RAD';$('#angle').textContent=S.deg?'DEG':'RAD';
+  const OK=/^[\d.+−×÷^!%()a-zπ√E\s-]*$/;
+  const sv=store.get('calc.screens',null),old=store.get('calc.state',null);
+  const clean=(x,i)=>{const good=isFinite(parseFloat(x.ans));return{id:x.id||(Date.now()+i),name:(typeof x.name==='string'&&x.name)?x.name.slice(0,30):'Écran '+(i+1),expr:x.expr,done:!!x.done&&good,ans:good?String(x.ans):'0',undo:[],redo:[]};};
+  if(sv&&Array.isArray(sv.screens)){
+    S.screens=sv.screens.filter(x=>x&&typeof x.expr==='string'&&OK.test(x.expr)).slice(0,MAXS).map(clean);
+    S.cur=Math.max(0,Math.min(S.screens.length-1,(sv.cur|0)));S.seq=Math.max(sv.seq|0,S.screens.length);S.deg=sv.deg!==false;
+  }else if(old&&typeof old.expr==='string'&&OK.test(old.expr)){
+    S.screens=[clean(old,0)];S.deg=old.deg!==false;
   }
 }catch(e){}
+if(!S.screens.length){S.screens=[mkScreen('Écran 1')];S.cur=0;}
+loadCur();
+{const lab=S.deg?'DEG':'RAD';const dk=$('#k-deg');if(dk)dk.textContent=lab;$('#angle').textContent=lab;}
+$('#d2').setAttribute('aria-pressed',String(S.dec===2));$('#d3').setAttribute('aria-pressed',String(S.dec===3));
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 setMode(store.get('calc.sci',false));
 render();
+if(store.get('calc.multi',false))setMulti(true);
 addEventListener('resize',layoutDisplay);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layoutDisplay);
 const t0=store.get('calc.tab','calc');showTab(['calc','conv','cur','tools'].includes(t0)?t0:'calc');
