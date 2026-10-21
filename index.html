@@ -67,12 +67,12 @@ h1{font:500 1.05rem var(--f-display);margin:0;letter-spacing:-.01em}
 svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 
 /* display */
-.disp{flex:1 1 0;min-height:84px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;gap:4px;padding:6px 4px 10px;min-width:0;position:relative}
-.expr,.res{max-width:100%;white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;font-family:var(--f-display);font-variant-numeric:tabular-nums;text-align:right}
+.disp{overflow:hidden;flex:1 1 0;min-height:84px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;gap:4px;padding:6px 4px 10px;min-width:0;position:relative}
+.expr,.res{flex:none;max-width:100%;white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;font-family:var(--f-display);font-variant-numeric:tabular-nums;text-align:right}
 .expr::-webkit-scrollbar,.res::-webkit-scrollbar{display:none}
-.expr{font-weight:300;font-size:2.9rem;line-height:1.15;letter-spacing:-.03em;transition:font-size .25s,color .25s}
+.expr{font-weight:300;font-size:2.9rem;line-height:1.15;letter-spacing:-.03em;transition:color .25s}
 .expr.m{font-size:2.2rem}.expr.l{font-size:1.65rem}
-.res{font-weight:300;font-size:1.35rem;color:var(--fg2);min-height:1.7em;transition:font-size .25s,color .25s;letter-spacing:-.02em}
+.res{font-weight:300;font-size:1.35rem;color:var(--fg2);min-height:1.7em;transition:color .25s;letter-spacing:-.02em}
 .disp.done .expr{font-size:1.05rem;color:var(--fg3);letter-spacing:0}
 .disp.done .res{font-size:2.9rem;color:var(--fg);line-height:1.15;letter-spacing:-.03em}
 .disp.done .res.m{font-size:2.2rem}.disp.done .res.l{font-size:1.65rem}
@@ -331,6 +331,7 @@ function fmtExpr(s){return s.replace(/\d+(\.\d*)?|\.\d+/g,m=>{const[i,d]=m.split
 /* ---------- onglets ---------- */
 const tabs=document.querySelectorAll('.nav button');
 function showTab(id){
+  requestAnimationFrame(()=>{try{layoutDisplay();}catch(e){}});
   tabs.forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));
   ['calc','conv','cur','tools'].forEach(t=>{$('#p-'+t).hidden=t!==id;});
   store.set('calc.tab',id);
@@ -350,20 +351,40 @@ const S={expr:'',done:false,deg:true,ans:'0',hist:store.get('calc.hist',[])};
 const OPS='+−×÷^';
 const exprEl=$('#expr'),resEl=$('#res'),dispEl=$('#disp');
 
-function fit(el,txt){el.classList.remove('m','l');const n=txt.length;if(n>16)el.classList.add('l');else if(n>10)el.classList.add('m');}
+function fitText(el,max,min){
+  if(!el.clientWidth&&!el.scrollWidth)return;
+  el.style.whiteSpace='nowrap';el.style.overflowWrap='normal';
+  let size=max;el.style.fontSize=size+'px';
+  if(el.scrollWidth>el.clientWidth+1){
+    size=Math.max(min,Math.floor(size*el.clientWidth/el.scrollWidth));el.style.fontSize=size+'px';
+    while(size>min&&el.scrollWidth>el.clientWidth+1){size--;el.style.fontSize=size+'px';}
+  }
+  if(el.scrollWidth>el.clientWidth+1){
+    el.style.whiteSpace='normal';el.style.overflowWrap='anywhere';
+    const box=el.parentElement;
+    while(size>10&&el.getBoundingClientRect().top<box.getBoundingClientRect().top-1){size--;el.style.fontSize=size+'px';}
+  }
+}
+function layoutDisplay(){
+  if($('#p-calc').hidden)return;
+  const big=innerHeight<700?37:46;
+  if(S.done){fitText(exprEl,17,12);fitText(resEl,big,20);}
+  else{fitText(exprEl,big,20);fitText(resEl,22,15);}
+}
 function render(){
-  const shown=S.expr?fmtExpr(S.expr).replace(/\./g,','):'0';
-  exprEl.textContent=shown;fit(exprEl,shown);
+  const shown=S.expr?fmtExpr(S.expr).replace(/\./g,',').replace(/([+−×÷^])/g,'$1\u200b'):'0';
+  exprEl.textContent=shown;
   dispEl.classList.remove('err');
   let r='';
-  if(S.done){r=fmtCalc(parseFloat(S.ans));dispEl.classList.add('done');fit(resEl,r);}
+  if(S.done){r=fmtCalc(parseFloat(S.ans));dispEl.classList.add('done');}
   else{
-    dispEl.classList.remove('done');resEl.classList.remove('m','l');
+    dispEl.classList.remove('done');
     if(/[+−×÷^!%]|[a-zπ√]/.test(S.expr.replace(/^−/,''))&&!/^[\d.]+$/.test(S.expr)){
       try{r='= '+fmtCalc(evaluate(S.expr,S.deg));}catch(e){r='';}
     }
   }
   resEl.textContent=r;
+  layoutDisplay();
   store.set('calc.state',{expr:S.expr,done:S.done,ans:S.ans,deg:S.deg});
   requestAnimationFrame(()=>{exprEl.scrollLeft=exprEl.scrollWidth;});
 }
@@ -697,6 +718,8 @@ try{
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 setMode(store.get('calc.sci',false));
 render();
+addEventListener('resize',layoutDisplay);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layoutDisplay);
 const t0=store.get('calc.tab','calc');showTab(['calc','conv','cur','tools'].includes(t0)?t0:'calc');
 })();
 </script>
