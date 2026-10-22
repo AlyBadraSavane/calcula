@@ -4,7 +4,11 @@
   "webDir": "www",
   "backgroundColor": "#090b10",
   "android": {
-    "allowMixedContent": false,
-    "adjustMarginsForEdgeToEdge": "auto"
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
   }
 }

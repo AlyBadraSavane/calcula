@@ -33,6 +33,9 @@ jobs:
         run: node scripts/prepare-www.mjs
 
       - name: Créer le projet Android et le personnaliser
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
         run: |
           npx cap add android
           node scripts/android-setup.mjs
@@ -40,7 +43,14 @@ jobs:
 
       - name: Compiler l'APK (debug)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          set +e
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            grep -E "error:|FAILURE|What went wrong|Caused by|Could not|not found|requires" ../build.log | head -15 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+            exit $code
+          fi
 
       - name: Vérifier l'APK
         run: |
@@ -49,6 +59,7 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "== Identité de l'application"
           "$BT/aapt" dump badging "$APK" | grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion"
+          "$BT/aapt" dump badging "$APK" | grep "targetSdkVersion:'36'" >/dev/null
           "$BT/aapt" dump badging "$APK" | grep "name='com.alybadra.calcula'" >/dev/null
           echo "== Signature"
           "$BT/apksigner" verify --verbose "$APK" > sig.txt

@@ -40,6 +40,10 @@ let html=readFileSync(join(root,'index.html'),'utf8');
 const link=/<link[^>]*href="https:\/\/fonts\.googleapis\.com[^>]*>/;
 if(!link.test(html))throw new Error('Lien Google Fonts introuvable dans index.html');
 html=html.replace(link,'<link rel="stylesheet" href="fonts/fonts.css">');
+// Marges de sécurité (barre d'état / navigation) : Capacitor 8 fournit --safe-area-inset-* ; on les combine avec env()
+const SAFE='<style>:root{padding-top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));padding-bottom:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}</style>';
+if(!html.includes('</head>'))throw new Error('</head> introuvable');
+html=html.replace('</head>',SAFE+'\n</head>');
 writeFileSync(join(www,'index.html'),html);
 
 copyFileSync(join(root,'manifest.webmanifest'),join(www,'manifest.webmanifest'));

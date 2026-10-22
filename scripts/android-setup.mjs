@@ -1,5 +1,5 @@
 // À lancer juste après « npx cap add android » : personnalise le projet Android généré
-// (icônes, orientation portrait, écran de démarrage sombre, barres système).
+// (icônes, orientation portrait, écran de démarrage sombre, numéro de version).
 import {readFileSync,writeFileSync,existsSync,cpSync,readdirSync,statSync,rmSync,mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 
@@ -36,14 +36,14 @@ if(!/screenOrientation=/.test(m)){
   m=n;writeFileSync(mf,m);
 }
 
-// 4) Thèmes : barres système sombres et mode non plein-écran forcé (évite que l'interface passe sous la barre d'état)
-const st=join(res,'values','styles.xml');
-if(existsSync(st)){
-  let s=readFileSync(st,'utf8');
-  const items='\n        <item name="android:statusBarColor">#090b10</item>\n        <item name="android:navigationBarColor">#090b10</item>\n        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>';
-  let touched=0;
-  s=s.replace(/(<style\s+name="AppTheme\.NoActionBar(?:Launch)?"[^>]*>)/g,(a)=>{touched++;return a+items;});
-  if(!touched)warn('Style AppTheme.NoActionBar introuvable : barres système non personnalisées.');
-  writeFileSync(st,s);
-}else warn('values/styles.xml introuvable.');
+// 4) Numéro de version (Google Play exige un versionCode qui augmente à chaque envoi)
+const code=process.env.VERSION_CODE,name=process.env.VERSION_NAME;
+if(code){
+  const g=join(root,'android','app','build.gradle');
+  let b=readFileSync(g,'utf8');
+  const b2=b.replace(/versionCode\s+\d+/,'versionCode '+parseInt(code,10)).replace(/versionName\s+"[^"]*"/,'versionName "'+(name||'1.0')+'"');
+  if(b2===b)warn('versionCode/versionName introuvables dans build.gradle.');
+  writeFileSync(g,b2);
+  console.log('Version : '+(name||'1.0')+' (code '+code+')');
+}
 console.log('Personnalisation Android terminée.');
