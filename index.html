@@ -426,9 +426,15 @@ function fitText(el,max,min){
 function layoutDisplay(){
   if($('#p-calc').hidden)return;
   if(S.multi){S.screens.forEach((_,k)=>paintCard(k));return;}
-  const big=innerHeight<700?37:46;
-  if(S.done){fitText(exprEl,17,12);fitText(resEl,big,20);}
-  else{fitText(exprEl,big,20);fitText(resEl,22,15);}
+  const big0=innerHeight<700?37:46;
+  const room=other=>dispEl.clientHeight-other.offsetHeight-16;
+  if(S.done){
+    fitText(exprEl,17,12);
+    fitText(resEl,Math.max(20,Math.min(big0,Math.floor(room(exprEl)-30))),20);
+  }else{
+    fitText(resEl,22,15);
+    fitText(exprEl,Math.max(20,Math.min(big0,Math.floor(room(resEl)/1.15))),20);
+  }
 }
 function resultText(expr,done,ans){
   if(done)return fmtCalc(parseFloat(ans));
@@ -976,6 +982,7 @@ setMode(store.get('calc.sci',false));
 render();
 if(store.get('calc.multi',false))setMulti(true);
 addEventListener('resize',layoutDisplay);
+if(window.ResizeObserver){let ro=0;new ResizeObserver(()=>{if(ro)return;ro=requestAnimationFrame(()=>{ro=0;try{layoutDisplay();}catch(e){}});}).observe(dispEl);}
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layoutDisplay);
 const t0=store.get('calc.tab','calc');showTab(['calc','conv','cur','tools'].includes(t0)?t0:'calc');
 })();

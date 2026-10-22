@@ -1,0 +1,116 @@
+name: Android release (AAB signé)
+
+# Produit le fichier AAB à envoyer à Google Play, signé avec la clé d'envoi (upload key).
+# Se lance à chaque envoi sur la branche « android-release ».
+# Prérequis : secret du dépôt UPLOAD_KEY_PASSPHRASE (mot de passe fort, 12 caractères minimum).
+# La clé d'envoi est créée au premier lancement, chiffrée avec ce mot de passe puis conservée dans signing/upload.jks.enc.
+on:
+  push:
+    branches: [android-release]
+
+permissions:
+  contents: write
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Contrôler le mot de passe de la clé d'envoi
+        env:
+          PASS: ${{ secrets.UPLOAD_KEY_PASSPHRASE }}
+        run: |
+          if [ -z "$PASS" ]; then echo "::error::Secret UPLOAD_KEY_PASSPHRASE absent : ajoutez-le dans Settings > Secrets and variables > Actions."; exit 1; fi
+          if [ ${#PASS} -lt 12 ]; then echo "::error::UPLOAD_KEY_PASSPHRASE trop court (12 caractères minimum)."; exit 1; fi
+
+      - name: Installer les dépendances
+        run: npm install --no-audit --no-fund
+
+      - name: Préparer la version Web embarquée
+        run: node scripts/prepare-www.mjs
+
+      - name: Créer le projet Android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
+        run: |
+          npx cap add android
+          node scripts/android-setup.mjs
+          npx cap sync android
+
+      - name: Clé d'envoi (création ou déchiffrement)
+        env:
+          PASS: ${{ secrets.UPLOAD_KEY_PASSPHRASE }}
+        run: |
+          mkdir -p signing
+          if [ -f signing/upload.jks.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in signing/upload.jks.enc -out upload.jks -pass env:PASS
+            echo "Clé d'envoi existante déchiffrée."
+          else
+            keytool -genkeypair -v -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass:env PASS -keypass:env PASS -dname "CN=Aly Badra Savane, O=Calcula, C=GN"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -in upload.jks -out signing/upload.jks.enc -pass env:PASS
+            echo "NEWKEY=1" >> "$GITHUB_ENV"
+            echo "Nouvelle clé d'envoi créée."
+          fi
+
+      - name: Compiler l'AAB (release)
+        working-directory: android
+        run: |
+          set +e
+          ./gradlew bundleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            grep -E "error:|FAILURE|What went wrong|Caused by|Could not|not found|requires" ../build.log | head -15 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+            exit $code
+          fi
+
+      - name: Signer et vérifier l'AAB
+        env:
+          PASS: ${{ secrets.UPLOAD_KEY_PASSPHRASE }}
+        run: |
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB"
+          mkdir -p dist
+          cp "$AAB" dist/Calcula-release.aab
+          jarsigner -keystore upload.jks -storepass:env PASS -sigalg SHA256withRSA -digestalg SHA-256 dist/Calcula-release.aab upload
+          jarsigner -verify dist/Calcula-release.aab > verify.txt
+          head -3 verify.txt
+          grep "jar verified" verify.txt
+          keytool -printcert -jarfile dist/Calcula-release.aab > cert.txt
+          grep -E "SHA1|SHA256|Owner" cert.txt
+          echo "::notice::Empreinte SHA-256 de la clé d'envoi : $(grep 'SHA256:' cert.txt | head -1 | sed 's/.*SHA256: *//')"
+          unzip -l dist/Calcula-release.aab | grep -E "base/assets/public/(index.html|fonts/fonts.css)"
+          sha256sum dist/Calcula-release.aab | tee dist/Calcula-release.aab.sha256
+          cp signing/upload.jks.enc dist/upload.jks.enc
+          ls -l dist
+
+      - name: Conserver la clé d'envoi chiffrée dans la branche (première fois seulement)
+        if: env.NEWKEY == '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signing/upload.jks.enc
+          git commit -m "Clé d'envoi chiffrée (créée automatiquement)"
+          git push origin HEAD:android-release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Calcula-AAB
+          path: |
+            dist/Calcula-release.aab
+            dist/Calcula-release.aab.sha256
+            dist/upload.jks.enc
+          if-no-files-found: error
+          retention-days: 90
