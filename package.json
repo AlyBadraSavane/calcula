@@ -1,0 +1,18 @@
+{
+  "name": "calcula-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calcula — empaquetage Android (Capacitor) de la version Web",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.mjs",
+    "android:add": "npx cap add android && node scripts/android-setup.mjs",
+    "android:sync": "npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.0",
+    "@capacitor/cli": "^7.4.0",
+    "@capacitor/core": "^7.4.0",
+    "@fontsource/manrope": "^5.0.0",
+    "@fontsource/sora": "^5.0.0"
+  }
+}

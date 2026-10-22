@@ -1,0 +1,74 @@
+name: Android APK
+
+# Compile un APK de test (signé avec la clé de débogage Android) à chaque envoi sur la branche « android ».
+# Aucun déploiement, aucun service payant, aucune clé de publication Google Play.
+on:
+  push:
+    branches: [android]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Installer les dépendances (Capacitor, polices)
+        run: npm install --no-audit --no-fund
+
+      - name: Préparer la version Web embarquée (polices locales)
+        run: node scripts/prepare-www.mjs
+
+      - name: Créer le projet Android et le personnaliser
+        run: |
+          npx cap add android
+          node scripts/android-setup.mjs
+          npx cap sync android
+
+      - name: Compiler l'APK (debug)
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Vérifier l'APK
+        run: |
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "== Identité de l'application"
+          "$BT/aapt" dump badging "$APK" | grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion"
+          "$BT/aapt" dump badging "$APK" | grep "name='com.alybadra.calcula'" >/dev/null
+          echo "== Signature"
+          "$BT/apksigner" verify --verbose "$APK" > sig.txt
+          head -5 sig.txt
+          echo "== Contenu embarqué"
+          unzip -l "$APK" > list.txt
+          grep -E "assets/public/(index.html|manifest.webmanifest|fonts/fonts.css)" list.txt
+          echo "Fichiers de police : $(grep -c 'assets/public/fonts/.*woff2' list.txt)"
+          unzip -p "$APK" assets/public/index.html > idx.html
+          grep "fonts/fonts.css" idx.html >/dev/null
+          if grep "fonts.googleapis.com" idx.html >/dev/null; then echo "Police distante restante"; exit 1; fi
+          mkdir -p dist && cp "$APK" dist/Calcula-debug.apk
+          sha256sum dist/Calcula-debug.apk | tee dist/Calcula-debug.apk.sha256
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Calcula-APK
+          path: |
+            dist/Calcula-debug.apk
+            dist/Calcula-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30

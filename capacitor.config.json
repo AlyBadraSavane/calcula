@@ -1,0 +1,10 @@
+{
+  "appId": "com.alybadra.calcula",
+  "appName": "Calcula",
+  "webDir": "www",
+  "backgroundColor": "#090b10",
+  "android": {
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}
