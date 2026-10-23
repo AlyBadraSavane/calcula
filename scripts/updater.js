@@ -26,20 +26,20 @@
   document.head.appendChild(css);
 
   function hide(el){el.classList.remove('in');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);}
-  function later(code){var s=get();s.laterCode=code;s.later=Date.now();put(s);}
+  var dismissed=false; // « ✕ » ne masque l'avertissement que jusqu'à la fermeture de l'application
 
   function show(info){
-    if(document.getElementById('upd'))return;
+    if(dismissed||document.getElementById('upd'))return;
     var el=document.createElement('div');el.id='upd';el.setAttribute('role','alert');
     el.innerHTML='<div class="u-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg></div>'+
       '<div class="u-t"><b>Mise à jour disponible</b><span></span></div>'+
       '<button type="button" class="go">Télécharger</button><button type="button" class="lt" aria-label="Plus tard">✕</button>';
     el.querySelector('.u-t span').textContent=info.name+(info.notes?' — '+info.notes:'');
     el.querySelector('.go').addEventListener('click',function(){
-      later(info.code);hide(el);
+      hide(el);
       try{if(!window.open(info.url,'_blank'))location.href=info.url;}catch(e){location.href=info.url;}
     });
-    el.querySelector('.lt').addEventListener('click',function(){later(info.code);hide(el);});
+    el.querySelector('.lt').addEventListener('click',function(){dismissed=true;hide(el);});
     document.body.appendChild(el);
     requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('in');});});
   }
@@ -58,16 +58,22 @@
         var m=/^apk-(\d+)$/.exec(rel.tag_name||'');
         if(!m)return;
         var code=parseInt(m[1],10);
-        if(!(code>B.code))return;
-        if(s.laterCode===code&&s.later&&Date.now()-s.later<24*HOUR)return;
+        if(!(code>B.code)){delete s.pending;put(s);return;}
         var asset=(rel.assets||[]).filter(function(a){return /\.apk$/i.test(a.name||'');})[0];
-        show({code:code,name:rel.name||('Calcula '+code),url:asset?asset.browser_download_url:rel.html_url,
-              notes:String(rel.body||'').split('\n')[0].slice(0,80)});
+        var info={code:code,name:rel.name||('Calcula '+code),url:asset?asset.browser_download_url:rel.html_url,
+              notes:String(rel.body||'').split('\n')[0].slice(0,80)};
+        s.pending=info;put(s);show(info);
       })
       .catch(function(){clearTimeout(timer);});
   }
 
-  setTimeout(function(){check(false);},2500);
+  // À chaque ouverture : si une mise à jour déjà connue n'est pas installée, l'avertissement s'affiche tout de suite
+  // (même sans Internet), puis on revérifie en ligne. Il disparaît dès que la version installée est à jour.
+  (function(){var s=get(),p=s.pending;
+    if(p&&p.code>B.code)setTimeout(function(){show(p);},800);
+    else if(p){delete s.pending;put(s);}
+  })();
+  setTimeout(function(){check(true);},2500);
   setInterval(function(){if(!document.hidden)check(false);},3*60e3+2000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)check(false);});
   window.addEventListener('online',function(){check(true);});
