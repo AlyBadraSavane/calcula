@@ -44,6 +44,16 @@ html=html.replace(link,'<link rel="stylesheet" href="fonts/fonts.css">');
 const SAFE='<style>:root{padding-top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));padding-bottom:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}</style>';
 if(!html.includes('</head>'))throw new Error('</head> introuvable');
 html=html.replace('</head>',SAFE+'\n</head>');
+// Avertissement de mise à jour : uniquement pour l'APK téléchargé à la main (CALCULA_UPDATER=1).
+// Google Play interdit à une application distribuée sur le Play Store de se mettre à jour autrement que par le Play Store.
+if(process.env.CALCULA_UPDATER==='1'){
+  const code=parseInt(process.env.VERSION_CODE||'',10);
+  if(!code)throw new Error('VERSION_CODE requis quand CALCULA_UPDATER=1');
+  const build={code,name:process.env.VERSION_NAME||String(code),repo:process.env.GITHUB_REPOSITORY||'AlyBadraSavane/calcula'};
+  copyFileSync(join(root,'scripts','updater.js'),join(www,'update.js'));
+  html=html.replace('</head>','<script>window.CALCULA_BUILD='+JSON.stringify(build)+';</script>\n<script src="update.js" defer></script>\n</head>');
+  console.log('Mise à jour par APK activée (version '+build.name+', code '+code+').');
+}
 writeFileSync(join(www,'index.html'),html);
 
 copyFileSync(join(root,'manifest.webmanifest'),join(www,'manifest.webmanifest'));

@@ -1,14 +1,17 @@
 name: Android APK
 
-# Compile un APK de test (signé avec la clé de débogage Android) à chaque envoi sur la branche « android ».
-# Aucun déploiement, aucun service payant, aucune clé de publication Google Play.
+# Compile l'APK à installer à la main, signé avec la clé stable (la même que l'AAB Google Play), pour que
+# les nouvelles versions s'installent par-dessus les anciennes sans perdre les données.
+# Si le message du commit contient « [release] », l'APK est aussi publié dans une Release GitHub publique
+# (tag apk-<numéro>) : l'application affiche alors « Mise à jour disponible » aux utilisateurs de l'APK.
+# Aucun déploiement en production, aucun service payant.
 on:
   push:
     branches: [android]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -26,10 +29,21 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Contrôler le mot de passe de la clé de signature
+        env:
+          PASS: ${{ secrets.UPLOAD_KEY_PASSPHRASE }}
+        run: |
+          if [ -z "$PASS" ]; then echo "::error::Secret UPLOAD_KEY_PASSPHRASE absent."; exit 1; fi
+          test -f signing/upload.jks.enc || { echo "::error::signing/upload.jks.enc introuvable."; exit 1; }
+
       - name: Installer les dépendances (Capacitor, polices)
         run: npm install --no-audit --no-fund
 
-      - name: Préparer la version Web embarquée (polices locales)
+      - name: Préparer la version Web embarquée (polices locales, avertissement de mise à jour)
+        env:
+          CALCULA_UPDATER: "1"
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
         run: node scripts/prepare-www.mjs
 
       - name: Créer le projet Android et le personnaliser
@@ -41,45 +55,72 @@ jobs:
           node scripts/android-setup.mjs
           npx cap sync android
 
-      - name: Compiler l'APK (debug)
+      - name: Compiler l'APK (release)
         working-directory: android
         run: |
           set +e
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build.log
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
           code=${PIPESTATUS[0]}
           if [ "$code" != "0" ]; then
             grep -E "error:|FAILURE|What went wrong|Caused by|Could not|not found|requires" ../build.log | head -15 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
             exit $code
           fi
 
+      - name: Signer l'APK avec la clé stable
+        env:
+          PASS: ${{ secrets.UPLOAD_KEY_PASSPHRASE }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in signing/upload.jks.enc -out upload.jks -pass env:PASS
+          SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          echo "APK non signé : $SRC"
+          mkdir -p dist
+          "$BT/zipalign" -f -p 4 "$SRC" aligned.apk
+          "$BT/apksigner" sign --ks upload.jks --ks-key-alias upload --ks-pass env:PASS --key-pass env:PASS --out dist/Calcula.apk aligned.apk
+          rm -f upload.jks aligned.apk
+
       - name: Vérifier l'APK
         run: |
-          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          APK=dist/Calcula.apk
           test -f "$APK"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "== Identité de l'application"
-          "$BT/aapt" dump badging "$APK" | grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion"
-          "$BT/aapt" dump badging "$APK" | grep "targetSdkVersion:'36'" >/dev/null
-          "$BT/aapt" dump badging "$APK" | grep "name='com.alybadra.calcula'" >/dev/null
+          "$BT/aapt" dump badging "$APK" > badging.txt
+          grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion" badging.txt
+          grep "name='com.alybadra.calcula'" badging.txt >/dev/null
+          grep "targetSdkVersion:'36'" badging.txt >/dev/null
           echo "== Signature"
-          "$BT/apksigner" verify --verbose "$APK" > sig.txt
-          head -5 sig.txt
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > sig.txt
+          head -8 sig.txt
+          grep "Verifies" sig.txt >/dev/null
           echo "== Contenu embarqué"
           unzip -l "$APK" > list.txt
-          grep -E "assets/public/(index.html|manifest.webmanifest|fonts/fonts.css)" list.txt
+          grep -E "assets/public/(index.html|manifest.webmanifest|fonts/fonts.css|update.js)" list.txt
           echo "Fichiers de police : $(grep -c 'assets/public/fonts/.*woff2' list.txt)"
           unzip -p "$APK" assets/public/index.html > idx.html
           grep "fonts/fonts.css" idx.html >/dev/null
+          grep "CALCULA_BUILD" idx.html >/dev/null
           if grep "fonts.googleapis.com" idx.html >/dev/null; then echo "Police distante restante"; exit 1; fi
-          mkdir -p dist && cp "$APK" dist/Calcula-debug.apk
-          sha256sum dist/Calcula-debug.apk | tee dist/Calcula-debug.apk.sha256
+          sha256sum dist/Calcula.apk | tee dist/Calcula.apk.sha256
           ls -l dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: Calcula-APK
           path: |
-            dist/Calcula-debug.apk
-            dist/Calcula-debug.apk.sha256
+            dist/Calcula.apk
+            dist/Calcula.apk.sha256
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publier dans une Release GitHub (seulement si le commit contient [release])
+        if: contains(github.event.head_commit.message, '[release]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          TAG=apk-${{ github.run_number }}
+          NOTE=$(printf '%s' "$MSG" | head -1 | sed 's/ *\[release\] *//')
+          gh release create "$TAG" dist/Calcula.apk dist/Calcula.apk.sha256 \
+            --title "Calcula 1.1.${{ github.run_number }}" --notes "$NOTE" --target "$GITHUB_SHA" --latest
+          echo "::notice::Release publiée : https://github.com/${{ github.repository }}/releases/tag/$TAG"
