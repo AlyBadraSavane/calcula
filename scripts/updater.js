@@ -46,7 +46,7 @@
 
   function check(force){
     var st=get();
-    if(!force&&st.last&&Date.now()-st.last<10*60e3)return;
+    if(!force&&st.last&&Date.now()-st.last<3*60e3)return;
     if(navigator.onLine===false||!window.fetch)return;
     var ctrl=window.AbortController?new AbortController():null;
     var timer=setTimeout(function(){if(ctrl)ctrl.abort();},8000);
@@ -68,6 +68,7 @@
   }
 
   setTimeout(function(){check(false);},2500);
+  setInterval(function(){if(!document.hidden)check(false);},3*60e3+2000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)check(false);});
   window.addEventListener('online',function(){check(true);});
 })();
