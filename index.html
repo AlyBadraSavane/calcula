@@ -149,6 +149,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .btn{padding:10px 16px;border-radius:999px;font-weight:700;font-size:.85rem;color:var(--eq-ink);background:linear-gradient(135deg,var(--eq-a),var(--eq-b))}
 .btn.alt{color:var(--fg);background:var(--surface);border:1px solid var(--line)}
 .btn.danger{color:var(--danger)}
+.nbadge{position:absolute;top:2px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--danger);color:#fff;font:700 .62rem/16px var(--f-body);text-align:center}
+.nav button{position:relative}
+.nlist .new{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:999px;background:var(--danger);color:#fff;font-size:.62rem;font-weight:700;vertical-align:middle}
 .toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);z-index:20;padding:10px 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-size:.82rem;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:86vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .sheet .pk-num{font:300 1.3rem var(--f-display);font-variant-numeric:tabular-nums}
@@ -372,7 +375,7 @@ summary::-webkit-details-marker{display:none}
     <button role="tab" data-tab="conv" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Convertir</button>
     <button role="tab" data-tab="cur" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1 0-2-.5-2.5-1.5M12 6.5v1.5M12 16v1.5"/></svg>Devises</button>
     <button role="tab" data-tab="tools" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Outils</button>
-    <button role="tab" data-tab="notes" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h6M9 16h6"/></svg>Notes</button>
+    <button role="tab" data-tab="notes" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h6M9 16h6"/></svg>Notes<span class="nbadge" id="n-badge" hidden>0</span></button>
   </nav>
 </div>
 
@@ -805,7 +808,9 @@ const saveNotes=()=>store.set('calc.notes',notes);
 const nid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),1900);}
 function noteTitle(n){return (n.title||'').trim()||((n.body||'').trim().split('\n')[0].slice(0,40))||'Sans titre';}
+function updBadge(){const c=notes.filter(n=>n.unread).length,b=$('#n-badge');b.hidden=!c;b.textContent=c>9?'9+':String(c);}
 function renderNotes(){
+  updBadge();
   const q=($('#n-search').value||'').trim().toLowerCase();
   const ul=$('#n-list');ul.innerHTML='';
   const list=notes.filter(n=>!q||(n.title+' '+n.body).toLowerCase().includes(q)).sort((a,b)=>b.t-a.t);
@@ -814,6 +819,7 @@ function renderNotes(){
     const li=document.createElement('li'),b=document.createElement('button');
     b.innerHTML='<span class="nt"></span><span class="nb"></span><span class="nd"></span>';
     b.querySelector('.nt').textContent=noteTitle(n);
+    if(n.unread){const tg=document.createElement('span');tg.className='new';tg.textContent='Nouveau';b.querySelector('.nt').prepend(tg);}
     b.querySelector('.nb').textContent=(n.body||'').trim()||'Note vide';
     try{b.querySelector('.nd').textContent=new Date(n.t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}
     b.addEventListener('click',()=>{buzz();openNote(n.id);});
@@ -822,6 +828,7 @@ function renderNotes(){
 }
 function openNote(id){
   const n=notes.find(x=>x.id===id);if(!n)return;
+  if(n.unread){n.unread=false;saveNotes();updBadge();}
   curNote=id;$('#n-title').value=n.title||'';$('#n-body').value=n.body||'';
   $('#n-edit').classList.add('open');$('#n-edit').setAttribute('aria-hidden','false');
 }
@@ -829,16 +836,18 @@ function closeNote(){
   if(curNote){
     const n=notes.find(x=>x.id===curNote);
     if(n&&!(n.title||'').trim()&&!(n.body||'').trim())notes=notes.filter(x=>x.id!==curNote);
+    else if(n&&dirty){n.unread=true;toast('Note enregistrée');}
     saveNotes();
   }
-  curNote=null;$('#n-edit').classList.remove('open');$('#n-edit').setAttribute('aria-hidden','true');
+  dirty=false;curNote=null;$('#n-edit').classList.remove('open');$('#n-edit').setAttribute('aria-hidden','true');
   try{document.activeElement.blur();}catch(e){}
   renderNotes();
 }
 window.__closeNote=()=>{if(curNote)closeNote();};
 window.__renderNotes=renderNotes;
-function newNote(body){const n={id:nid(),title:'',body:body||'',t:Date.now()};notes.unshift(n);saveNotes();return n;}
-function touchNote(){const n=notes.find(x=>x.id===curNote);if(!n)return;n.title=$('#n-title').value;n.body=$('#n-body').value;n.t=Date.now();saveNotes();}
+function newNote(body){const n={id:nid(),title:'',body:body||'',t:Date.now(),unread:!!body};notes.unshift(n);saveNotes();return n;}
+let dirty=false;
+function touchNote(){const n=notes.find(x=>x.id===curNote);if(!n)return;dirty=true;n.title=$('#n-title').value;n.body=$('#n-body').value;n.t=Date.now();saveNotes();}
 $('#n-title').addEventListener('input',touchNote);
 $('#n-body').addEventListener('input',touchNote);
 $('#n-new').addEventListener('click',()=>{buzz();const n=newNote('');renderNotes();openNote(n.id);setTimeout(()=>$('#n-title').focus(),250);});
@@ -847,7 +856,7 @@ $('#n-search').addEventListener('input',renderNotes);
 $('#n-del').addEventListener('click',()=>{
   const n=notes.find(x=>x.id===curNote);if(!n)return;
   if((n.title||n.body)&&!confirm('Supprimer cette note ?'))return;
-  notes=notes.filter(x=>x.id!==curNote);saveNotes();curNote=null;closeNote();
+  notes=notes.filter(x=>x.id!==curNote);saveNotes();dirty=false;curNote=null;closeNote();toast('Note supprimée');
 });
 /* sélecteur générique */
 function openPick(title,items,empty){
@@ -867,8 +876,8 @@ $('#pk-close').addEventListener('click',closePick);
 function appendLine(n,line){n.body=(n.body&&!/\n$/.test(n.body)?n.body+'\n':n.body||'')+line+'\n';n.t=Date.now();}
 function addToNote(line){
   closeHist();
-  const items=[{label:'+ Nouvelle note',cls:'e',fn:()=>{const n=newNote(line+'\n');renderNotes();toast('Ajouté à une nouvelle note');}}];
-  notes.slice().sort((a,b)=>b.t-a.t).forEach(n=>items.push({label:noteTitle(n),sub:(n.body||'').trim().split('\n').slice(-1)[0]||'',fn:()=>{appendLine(n,line);saveNotes();renderNotes();toast('Ajouté à « '+noteTitle(n)+' »');}}));
+  const items=[{label:'+ Nouvelle note',cls:'e',fn:()=>{const n=newNote(line+'\n');renderNotes();toast('Note enregistrée');}}];
+  notes.slice().sort((a,b)=>b.t-a.t).forEach(n=>items.push({label:noteTitle(n),sub:(n.body||'').trim().split('\n').slice(-1)[0]||'',fn:()=>{appendLine(n,line);n.unread=true;saveNotes();renderNotes();toast('Ajouté à « '+noteTitle(n)+' »');}}));
   openPick('Ajouter à une note',items);
 }
 $('#b-note').addEventListener('click',()=>{
