@@ -89,6 +89,9 @@ jobs:
           grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion" badging.txt
           grep "name='com.alybadra.calcula'" badging.txt >/dev/null
           grep "targetSdkVersion:'36'" badging.txt >/dev/null
+          echo "== Widget"
+          "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml > mani.txt
+          grep "CalculaWidget" mani.txt >/dev/null
           echo "== Signature"
           "$BT/apksigner" verify --verbose --print-certs "$APK" > sig.txt
           head -8 sig.txt
