@@ -29,7 +29,7 @@ for(const f of FAMILIES){
         continue;
       }
       copyFileSync(src,join(www,'fonts',file));count++;
-      css+=`@font-face{font-family:'${f.name}';font-style:normal;font-weight:${w};font-display:swap;src:url(${file}) format('woff2');unicode-range:${RANGES[subset]};}\n`;
+      css+=`@font-face{font-family:'${f.name}';font-style:normal;font-weight:${w};font-display:block;src:url(${file}) format('woff2');unicode-range:${RANGES[subset]};}\n`;
     }
   }
 }
@@ -44,6 +44,16 @@ html=html.replace(link,'<link rel="stylesheet" href="fonts/fonts.css">');
 const SAFE='<style>:root{padding-top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));padding-bottom:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}</style>';
 if(!html.includes('</head>'))throw new Error('</head> introuvable');
 html=html.replace('</head>',SAFE+'\n</head>');
+// Démarrage sans « saut » : on garde l'application invisible (fond sombre) jusqu'à ce que les polices soient chargées
+// et que Capacitor ait fourni les marges de sécurité, puis on l'affiche d'un coup avec un court fondu.
+const BOOT=`<style>html.boot body{opacity:0}body{transition:opacity .18s ease-out}</style>
+<script>(function(){var d=document,r=d.documentElement;r.classList.add('boot');var done=false,t0=Date.now();
+function show(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(function(){r.classList.remove('boot');});});}
+function insetOk(){try{return getComputedStyle(r).getPropertyValue('--safe-area-inset-top').trim()!=='';}catch(e){return true;}}
+var fonts=(d.fonts&&d.fonts.ready)?d.fonts.ready:Promise.resolve();
+function wait(){if(insetOk()||Date.now()-t0>1200)fonts.then(function(){setTimeout(show,60);});else setTimeout(wait,40);}
+window.addEventListener('load',wait);setTimeout(show,2500);})();</script>`;
+html=html.replace('</head>',BOOT+'\n</head>');
 // Avertissement de mise à jour : uniquement pour l'APK téléchargé à la main (CALCULA_UPDATER=1).
 // Google Play interdit à une application distribuée sur le Play Store de se mettre à jour autrement que par le Play Store.
 if(process.env.CALCULA_UPDATER==='1'){
