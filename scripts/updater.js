@@ -46,7 +46,7 @@
 
   function check(force){
     var st=get();
-    if(!force&&st.last&&Date.now()-st.last<6*HOUR)return;
+    if(!force&&st.last&&Date.now()-st.last<10*60e3)return;
     if(navigator.onLine===false||!window.fetch)return;
     var ctrl=window.AbortController?new AbortController():null;
     var timer=setTimeout(function(){if(ctrl)ctrl.abort();},8000);
