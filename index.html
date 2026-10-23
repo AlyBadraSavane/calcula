@@ -152,6 +152,19 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .nbadge{position:absolute;top:2px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--danger);color:#fff;font:700 .62rem/16px var(--f-body);text-align:center}
 .nav button{position:relative}
 .nlist .new{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:999px;background:var(--danger);color:#fff;font-size:.62rem;font-weight:700;vertical-align:middle}
+.mdot{position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.rt{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 2px 2px;font-size:.74rem;color:var(--fg2)}
+.setrow{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.setrow .seg{align-self:flex-start;flex-wrap:wrap}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btn.sm{padding:8px 12px;font-size:.78rem}
+.card textarea.in{width:100%;min-height:90px;resize:vertical;font:500 .78rem/1.4 monospace;user-select:text;-webkit-user-select:text}
+.tk-row{display:grid;grid-template-columns:1fr 64px 92px;gap:6px}
+.tk-row .in{width:100%;user-select:text;-webkit-user-select:text}
+.tk-line{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:.86rem}
+.tk-line .a{flex:1;min-width:0;overflow-wrap:anywhere}
+.tk-line .m{font-variant-numeric:tabular-nums;font-weight:700}
+.tk-total{display:flex;justify-content:space-between;font:500 1.3rem var(--f-display);padding-top:6px}
 .toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);z-index:20;padding:10px 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-size:.82rem;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:86vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .sheet .pk-num{font:300 1.3rem var(--f-display);font-variant-numeric:tabular-nums}
@@ -291,6 +304,8 @@ summary::-webkit-details-marker{display:none}
           <button id="d3" aria-pressed="false">0.000</button>
         </div>
         <div class="icons">
+          <button class="ico sm" id="b-mem" aria-label="Mémoire"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span class="mdot" id="mem-dot" hidden></span></button>
+          <button class="ico sm" id="b-copy" aria-label="Copier ou partager le résultat"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
           <button class="ico sm" id="b-note" aria-label="Ajouter à une note"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M12 11v6M9 14h6"/></svg></button>
           <button class="ico sm" id="b-undo" aria-label="Annuler" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
           <button class="ico sm" id="b-redo" aria-label="Rétablir" disabled><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
@@ -322,11 +337,12 @@ summary::-webkit-details-marker{display:none}
         <p class="sub">GNF, FCFA, dollar, euro et autres. Les taux de départ sont approximatifs : saisissez le taux du jour pour un résultat exact.</p>
         <div style="height:12px"></div>
         <div id="cur"></div>
+        <div class="rt"><span id="rt-info"></span><button class="link" id="rt-upd">Actualiser</button></div>
         <details id="ratebox">
           <summary>Modifier les taux</summary>
           <div class="rates" id="rates"></div>
-          <button class="link" id="rates-reset" style="padding-left:0">Remettre les taux de départ</button>
-          <p class="note">Chaque ligne indique combien d'unités de la devise valent 1 dollar américain. Les taux sont gardés sur cet appareil.</p>
+          <button class="link" id="rates-reset" style="padding-left:0">Remettre les taux automatiques</button>
+          <p class="note">Chaque ligne indique combien d'unités de la devise valent 1 dollar américain. Les taux se mettent à jour tout seuls quand Internet est disponible ; un taux que vous saisissez vous-même est conservé jusqu'à « Remettre les taux de départ ».</p>
         </details>
       </div>
     </section>
@@ -356,7 +372,8 @@ summary::-webkit-details-marker{display:none}
         <input class="n-title" id="n-title" placeholder="Titre" maxlength="80" aria-label="Titre de la note">
         <textarea class="n-body" id="n-body" placeholder="Écrivez votre note ici…" aria-label="Texte de la note"></textarea>
         <div class="n-foot">
-          <button class="btn alt" id="n-nums">Nombre → calcul</button>
+          <button class="btn alt sm" id="n-chk" aria-label="Case à cocher">☑ Case</button>
+          <button class="btn alt sm" id="n-nums">Nombre → calcul</button>
           <button class="btn" id="n-done">Terminé</button>
         </div>
       </div>
@@ -419,7 +436,11 @@ function evaluate(src, deg){
 (function(){
 const $=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
-const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(7);}catch(e){}};
+const buzz=()=>{try{if(store.get('calc.vib',true)!==false&&navigator.vibrate)navigator.vibrate(7);}catch(e){}};
+const LANG=store.get('calc.lang','fr')==='en'?'en':'fr',LOC=LANG==='en'?'en-GB':'fr-FR';
+const T=fr=>LANG==='en'?trEN(fr):fr,L=(fr,en)=>LANG==='en'?en:fr;
+let SEP=store.get('calc.sep',',');if(![',',' ',''].includes(SEP))SEP=',';
+const sepFix=t=>SEP===','?t:t.replace(/,/g,SEP);
 const NB=' ';
 const nf=(max)=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:max});
 function fmtN(n,dec){
@@ -434,14 +455,14 @@ function fmtCalc(n){
   const v=parseFloat(n.toPrecision(12));
   const d=Number.isInteger(v)?0:S.dec;
   const out=new Intl.NumberFormat('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
-  return /^[-−]0(\.0+)?$/.test(out)?out.replace(/^[-−]/,''):out;
+  return sepFix(/^[-−]0(\.0+)?$/.test(out)?out.replace(/^[-−]/,''):out);
 }
 function rawNum(n){
   const a=Math.abs(n);
   if(a>=1e21||(a!==0&&a<1e-6))return n.toExponential(12).replace('e','E');
   return String(parseFloat(n.toPrecision(15)));
 }
-function fmtExpr(s){return s.replace(/\d+(\.\d*)?|\.\d+/g,m=>{const[i,d]=m.split('.');const g=i.replace(/\B(?=(\d{3})+(?!\d))/g,',');return d!==undefined?g+'.'+d:g;});}
+function fmtExpr(s){return s.replace(/\d+(\.\d*)?|\.\d+/g,m=>{const[i,d]=m.split('.');const g=i.replace(/\B(?=(\d{3})+(?!\d))/g,',');return sepFix(d!==undefined?g+'.'+d:g);});}
 
 /* ---------- onglets ---------- */
 const tabs=document.querySelectorAll('.nav button');
@@ -520,7 +541,7 @@ function fillExpr(el,e,caretPos,show){
         const run=e.slice(i,j),dot=run.indexOf('.'),n=dot<0?run.length:dot;
         for(let k=0;k<run.length;k++){
           if(show&&i+k===p)caret();
-          if(k>0&&k<n&&(n-k)%3===0){const c=document.createElement('span');c.textContent=',';c.className='sep';fr.appendChild(c);}
+          if(k>0&&k<n&&(n-k)%3===0){const c=document.createElement('span');c.textContent=SEP;c.className='sep';fr.appendChild(c);}
           mk(run[k],i+k);
         }
         i=j;
@@ -789,7 +810,7 @@ function renderHist(){
     const li=document.createElement('li');const b=document.createElement('button');
     b.innerHTML='<span class="e"></span><span class="r"></span><span class="d"></span>';
     b.querySelector('.e').textContent=h.e+' =';b.querySelector('.r').textContent=(h.raw!=null&&isFinite(parseFloat(h.raw)))?fmtCalc(parseFloat(h.raw)):h.r;
-    if(h.t){try{b.querySelector('.d').textContent=new Date(h.t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}}
+    if(h.t){try{b.querySelector('.d').textContent=new Date(h.t).toLocaleString(LOC,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}}
     b.addEventListener('click',()=>{S.expr=h.raw;S.done=false;S.caret=null;render();closeHist();});
     const nb=document.createElement('button');nb.className='link';nb.textContent='+ Ajouter à une note';nb.style.cssText='align-self:flex-end;padding:2px 8px 0';
     nb.addEventListener('click',ev=>{ev.stopPropagation();addToNote(h.e+' = '+((h.raw!=null&&isFinite(parseFloat(h.raw)))?fmtCalc(parseFloat(h.raw)):h.r));});
@@ -821,7 +842,7 @@ function renderNotes(){
     b.querySelector('.nt').textContent=noteTitle(n);
     if(n.unread){const tg=document.createElement('span');tg.className='new';tg.textContent='Nouveau';b.querySelector('.nt').prepend(tg);}
     b.querySelector('.nb').textContent=(n.body||'').trim()||'Note vide';
-    try{b.querySelector('.nd').textContent=new Date(n.t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}
+    try{b.querySelector('.nd').textContent=new Date(n.t).toLocaleString(LOC,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}
     b.addEventListener('click',()=>{buzz();openNote(n.id);});
     li.appendChild(b);ul.appendChild(li);
   });
@@ -850,12 +871,33 @@ let dirty=false;
 function touchNote(){const n=notes.find(x=>x.id===curNote);if(!n)return;dirty=true;n.title=$('#n-title').value;n.body=$('#n-body').value;n.t=Date.now();saveNotes();}
 $('#n-title').addEventListener('input',touchNote);
 $('#n-body').addEventListener('input',touchNote);
-$('#n-new').addEventListener('click',()=>{buzz();const n=newNote('');renderNotes();openNote(n.id);setTimeout(()=>$('#n-title').focus(),250);});
+function startNote(title,body){const n=newNote(body||'');n.title=title||'';n.unread=false;saveNotes();renderNotes();openNote(n.id);setTimeout(()=>$('#n-title').focus(),250);}
+$('#n-new').addEventListener('click',()=>{buzz();
+  openPick('Nouvelle note',[
+    {label:'Note vide',fn:()=>startNote('','')},
+    {label:'Liste à cocher',sub:'Cases à cocher à cocher une à une',fn:()=>startNote(L('Ma liste','My list'),'☐ ')},
+    {label:'Liste de courses',sub:'Riz, huile, sucre…',fn:()=>startNote(L('Courses','Shopping'),L('☐ Riz\n☐ Huile\n☐ Sucre\n☐ ','☐ Rice\n☐ Oil\n☐ Sugar\n☐ '))},
+    {label:'Dépenses du jour',sub:'Un montant par ligne',fn:()=>startNote(L('Dépenses du ','Expenses of ')+new Date().toLocaleDateString(LOC),'')}
+  ]);});
+/* cases à cocher : bouton + continuation automatique à la ligne suivante */
+function lineBounds(ta){const v=ta.value,i=ta.selectionStart;const a=v.lastIndexOf('\n',i-1)+1;let b=v.indexOf('\n',i);if(b<0)b=v.length;return[a,b];}
+$('#n-chk').addEventListener('click',()=>{
+  const ta=$('#n-body'),[a,b]=lineBounds(ta),line=ta.value.slice(a,b);let nl;
+  if(line.startsWith('☐ '))nl='☑ '+line.slice(2);else if(line.startsWith('☑ '))nl=line.slice(2);else nl='☐ '+line;
+  ta.value=ta.value.slice(0,a)+nl+ta.value.slice(b);ta.selectionStart=ta.selectionEnd=a+nl.length;touchNote();buzz();
+});
+$('#n-body').addEventListener('input',e=>{
+  if(e.inputType!=='insertLineBreak'&&!(e.inputType==='insertText'&&e.data==='\n'))return;
+  const ta=e.target,i=ta.selectionStart,v=ta.value,a=v.lastIndexOf('\n',i-2)+1,prev=v.slice(a,i-1);
+  if(/^[☐☑] $/.test(prev)){ta.value=v.slice(0,a)+v.slice(i);ta.selectionStart=ta.selectionEnd=a;touchNote();}
+  else if(/^[☐☑] /.test(prev)){ta.value=v.slice(0,i)+'☐ '+v.slice(i);ta.selectionStart=ta.selectionEnd=i+2;touchNote();}
+});
+
 $('#n-back').addEventListener('click',closeNote);$('#n-done').addEventListener('click',closeNote);
 $('#n-search').addEventListener('input',renderNotes);
 $('#n-del').addEventListener('click',()=>{
   const n=notes.find(x=>x.id===curNote);if(!n)return;
-  if((n.title||n.body)&&!confirm('Supprimer cette note ?'))return;
+  if((n.title||n.body)&&!confirm(T('Supprimer cette note ?')))return;
   notes=notes.filter(x=>x.id!==curNote);saveNotes();dirty=false;curNote=null;closeNote();toast('Note supprimée');
 });
 /* sélecteur générique */
@@ -899,6 +941,140 @@ $('#n-nums').addEventListener('click',()=>{
     const ins=neg?'('+v+')':v;S.expr=(S.expr||'')+ins;S.caret=null;render();
   }})),'Aucun nombre dans cette note.');
 });
+
+
+/* ---------- valeur courante, insertion d'un nombre ---------- */
+function curValue(){
+  if(S.done){const v=parseFloat(S.ans);return isFinite(v)?v:null;}
+  if(!S.expr)return null;
+  try{const v=evaluate(S.expr,S.deg);return isFinite(v)?v:null;}catch(e){return null;}
+}
+function calcLine(){
+  if(S.done&&S.hist.length)return{line:S.hist[0].e+' = '+S.hist[0].r,res:S.hist[0].raw!=null?String(S.hist[0].raw):S.hist[0].r};
+  if(!S.expr)return null;
+  try{const v=evaluate(S.expr,S.deg);return{line:fmtExpr(S.expr)+' = '+fmtCalc(v),res:rawNum(v)};}catch(e){return{line:fmtExpr(S.expr),res:fmtExpr(S.expr)};}
+}
+function insertNum(x){
+  if(S.done){S.expr='';S.done=false;S.caret=null;}
+  if(/[\d.)]$/.test(S.expr||'')){toast('Choisissez d’abord une opération (+, −, ×, ÷)');return false;}
+  const r=rawNum(x),ins=x<0?'('+r.replace('-','−')+')':r;
+  S.expr=(S.expr||'')+ins;S.caret=null;render();return true;
+}
+
+/* ---------- mémoire M+ M− MR MC ---------- */
+let mem=store.get('calc.mem',0);if(typeof mem!=='number'||!isFinite(mem))mem=0;
+function updMem(){const d=$('#mem-dot');d.hidden=!mem;store.set('calc.mem',mem);}
+$('#b-mem').addEventListener('click',()=>{
+  buzz();const v=curValue();
+  openPick('Mémoire : '+(mem?fmtCalc(mem):'vide'),[
+    {label:'M+  Ajouter à la mémoire',sub:v==null?'Faites d’abord un calcul':'+ '+fmtCalc(v),fn:()=>{if(v==null)return;mem+=v;updMem();toast('Mémoire : '+fmtCalc(mem));}},
+    {label:'M−  Soustraire de la mémoire',sub:v==null?'Faites d’abord un calcul':'− '+fmtCalc(v),fn:()=>{if(v==null)return;mem-=v;updMem();toast('Mémoire : '+fmtCalc(mem));}},
+    {label:'MR  Rappeler la mémoire',sub:mem?fmtCalc(mem):'Mémoire vide',fn:()=>{if(mem)insertNum(mem);else toast('La mémoire est vide');}},
+    {label:'MC  Effacer la mémoire',fn:()=>{mem=0;updMem();toast('Mémoire effacée');}}
+  ]);
+});
+updMem();
+
+/* ---------- copier / partager ---------- */
+async function copyText(t){
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);return true;}}catch(e){}
+  try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0;left:-9999px';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return ok;}catch(e){return false;}
+}
+function openLink(u){try{if(!window.open(u,'_blank'))location.href=u;}catch(e){location.href=u;}}
+function shareItems(text,what){
+  const items=[
+    {label:'Copier',sub:text.length>46?text.slice(0,46)+'…':text,fn:async()=>{toast(await copyText(text)?what+' copié':'Copie impossible');}},
+    {label:'Envoyer par WhatsApp',fn:()=>openLink('https://wa.me/?text='+encodeURIComponent(text))},
+    {label:'Envoyer par SMS',fn:()=>openLink('sms:?body='+encodeURIComponent(text))}
+  ];
+  if(navigator.share)items.push({label:'Partager…',fn:()=>{navigator.share({text}).catch(()=>{});}});
+  return items;
+}
+$('#b-copy').addEventListener('click',()=>{
+  buzz();const c=calcLine();
+  if(!c){toast('Rien à copier : faites d’abord un calcul');return;}
+  openPick('Copier ou partager',[
+    {label:'Le résultat seul',sub:fmtCalc(parseFloat(c.res))||c.res,fn:async()=>{toast(await copyText(c.res)?'Résultat copié':'Copie impossible');}},
+    ...shareItems(c.line,'Calcul')
+  ]);
+});
+
+/* ---------- sauvegarde / restauration ---------- */
+function backupData(){
+  const d={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('calc.')&&k!=='calc.upd')d[k]=localStorage.getItem(k);}}catch(e){}
+  return JSON.stringify({app:'calcula',v:1,date:new Date().toISOString(),data:d});
+}
+function restoreData(txt){
+  let o;try{o=JSON.parse(txt);}catch(e){}
+  if(!o||o.app!=='calcula'||!o.data||typeof o.data!=='object'){toast('Sauvegarde non reconnue');return false;}
+  const keys=Object.keys(o.data).filter(k=>k.startsWith('calc.')&&k!=='calc.upd');
+  if(!keys.length){toast('La sauvegarde est vide');return false;}
+  if(!confirm(T('Remplacer les données actuelles (notes, historique, réglages) par cette sauvegarde ?')))return false;
+  try{keys.forEach(k=>localStorage.setItem(k,String(o.data[k])));}catch(e){toast('Restauration impossible');return false;}
+  location.reload();return true;
+}
+
+/* ---------- réglages ---------- */
+function seg(label,opts,cur,onPick){
+  const row=document.createElement('div');row.className='setrow';
+  row.innerHTML='<span class="lbl"></span><div class="seg"></div>';row.firstChild.textContent=label;
+  const sg=row.lastChild;
+  opts.forEach(([v,n])=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.setAttribute('aria-pressed',String(v===cur));
+    b.addEventListener('click',()=>{buzz();[...sg.children].forEach(c=>c.setAttribute('aria-pressed',String(c===b)));onPick(v);});sg.appendChild(b);});
+  return row;
+}
+function renderSettings(box){
+  box.innerHTML='<p class="sub" style="margin:0 0 10px">Ces réglages sont gardés sur cet appareil.</p>';
+  box.appendChild(seg('Séparateur des milliers',[[',','1,000'],[' ','1 000'],['','1000']],SEP,v=>{SEP=v;store.set('calc.sep',v);render();if(S.multi)S.screens.forEach((_,k)=>paintCard(k));}));
+  const th=document.documentElement.dataset.theme||'auto';
+  box.appendChild(seg('Thème',[['auto','Auto'],['light','Clair'],['dark','Sombre']],th,v=>{
+    const r=document.documentElement;if(v==='auto'){delete r.dataset.theme;try{localStorage.removeItem('calc.theme');}catch(e){}}else{r.dataset.theme=v;store.set('calc.theme',v);}}));
+  box.appendChild(seg('Vibration des touches',[['1','Oui'],['0','Non']],store.get('calc.vib',true)===false?'0':'1',v=>store.set('calc.vib',v==='1')));
+  if(window.__langSeg)box.appendChild(window.__langSeg());
+  const bk=document.createElement('div');bk.className='setrow';
+  bk.innerHTML='<span class="lbl">Sauvegarde de vos données</span><p class="sub" style="margin:0">Notes, historique, écrans, taux et réglages. À garder en lieu sûr (par exemple dans vos messages WhatsApp).</p><div class="btnrow"><button class="btn sm" id="bk-copy">Copier la sauvegarde</button><button class="btn alt sm" id="bk-wa">Envoyer par WhatsApp</button><button class="btn alt sm" id="bk-file">Télécharger un fichier</button></div>'
+   +'<span class="lbl" style="margin-top:8px">Restaurer</span><textarea class="in" id="bk-txt" placeholder="Collez ici le texte de la sauvegarde"></textarea><div class="btnrow"><button class="btn sm" id="bk-restore">Restaurer ce texte</button><label class="btn alt sm" style="cursor:pointer">Choisir un fichier<input type="file" id="bk-pick" accept=".json,.txt,application/json,text/plain" hidden></label></div>';
+  box.appendChild(bk);
+  bk.querySelector('#bk-copy').addEventListener('click',async()=>{toast(await copyText(backupData())?'Sauvegarde copiée : collez-la dans un message':'Copie impossible');});
+  bk.querySelector('#bk-wa').addEventListener('click',()=>openLink('https://wa.me/?text='+encodeURIComponent(backupData())));
+  bk.querySelector('#bk-file').addEventListener('click',()=>{
+    try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([backupData()],{type:'application/json'}));a.download='calcula-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);toast('Fichier préparé');}catch(e){toast('Téléchargement impossible : utilisez « Copier »');}});
+  bk.querySelector('#bk-restore').addEventListener('click',()=>{const t=bk.querySelector('#bk-txt').value.trim();if(!t){toast('Collez d’abord la sauvegarde');return;}restoreData(t);});
+  bk.querySelector('#bk-pick').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>restoreData(String(r.result||''));r.readAsText(f);});
+}
+
+/* ---------- ticket de caisse ---------- */
+let ticket=store.get('calc.ticket',[]);if(!Array.isArray(ticket))ticket=[];
+function renderTicket(box){
+  const money=n=>fmtCalc(n);
+  box.innerHTML='<p class="sub" style="margin:0 0 6px">Additionnez des articles (nom, quantité, prix) et gardez le total dans une note.</p>'
+   +'<div class="tk-row"><input class="in" id="tk-n" placeholder="Article" maxlength="40"><input class="in" id="tk-q" inputmode="decimal" placeholder="Qté" value="1"><input class="in" id="tk-p" inputmode="decimal" placeholder="Prix"></div>'
+   +'<button class="btn" id="tk-add" style="margin:8px 0">Ajouter la ligne</button><div id="tk-list"></div><div class="tk-total"><span>Total</span><span id="tk-tot"></span></div>'
+   +'<div class="btnrow" style="margin-top:10px"><button class="btn alt sm" id="tk-note">Enregistrer dans une note</button><button class="btn alt sm" id="tk-share">Partager</button><button class="btn alt sm btn danger" id="tk-clr">Vider</button></div>';
+  const list=box.querySelector('#tk-list'),tot=box.querySelector('#tk-tot');
+  const text=()=>ticket.map(l=>(l.n||L('Article','Item'))+' '+l.q+' × '+money(l.p)+' = '+money(l.q*l.p)).join('\n')+'\nTOTAL = '+money(ticket.reduce((a,l)=>a+l.q*l.p,0));
+  function draw(){
+    list.innerHTML='';
+    ticket.forEach((l,i)=>{const d=document.createElement('div');d.className='tk-line';
+      d.innerHTML='<span class="a"></span><span class="m"></span><button class="link" aria-label="Supprimer la ligne">✕</button>';
+      d.querySelector('.a').textContent=(l.n||L('Article','Item'))+'  ('+l.q+' × '+money(l.p)+')';d.querySelector('.m').textContent=money(l.q*l.p);
+      d.querySelector('button').addEventListener('click',()=>{ticket.splice(i,1);store.set('calc.ticket',ticket);draw();});list.appendChild(d);});
+    tot.textContent=money(ticket.reduce((a,l)=>a+l.q*l.p,0));store.set('calc.ticket',ticket);
+  }
+  box.querySelector('#tk-add').addEventListener('click',()=>{
+    const q=parse(box.querySelector('#tk-q').value),pr=parse(box.querySelector('#tk-p').value);
+    if(pr==null||q==null||q<=0){toast('Saisissez une quantité et un prix');return;}
+    ticket.push({n:box.querySelector('#tk-n').value.trim(),q,p:pr});draw();buzz();
+    box.querySelector('#tk-n').value='';box.querySelector('#tk-p').value='';box.querySelector('#tk-q').value='1';box.querySelector('#tk-n').focus();
+  });
+  box.querySelector('#tk-clr').addEventListener('click',()=>{if(ticket.length&&!confirm(T('Vider le ticket ?')))return;ticket=[];draw();});
+  box.querySelector('#tk-note').addEventListener('click',()=>{
+    if(!ticket.length){toast('Le ticket est vide');return;}
+    const n=newNote(text()+'\n');n.title=L('Ticket du ','Receipt of ')+new Date().toLocaleDateString(LOC);saveNotes();renderNotes();toast('Note enregistrée');
+  });
+  box.querySelector('#tk-share').addEventListener('click',()=>{if(!ticket.length){toast('Le ticket est vide');return;}openPick('Partager le ticket',shareItems(text(),'Ticket'));});
+  draw();
+}
 
 /* clavier physique */
 document.addEventListener('keydown',e=>{
@@ -1048,7 +1224,11 @@ setCat(CATS.some(c=>c.id===catId)?catId:'len');
 const DEF_RATES={USD:1,EUR:.86,GBP:.75,GNF:8650,XOF:564,XAF:564,MAD:9.2,NGN:1500,CNY:7.1};
 const NAMES={USD:'Dollar américain',EUR:'Euro',GBP:'Livre sterling',GNF:'Franc guinéen',XOF:'FCFA (UEMOA)',XAF:'FCFA (CEMAC)',MAD:'Dirham marocain',NGN:'Naira nigérian',CNY:'Yuan chinois'};
 const SYMS={USD:'$',EUR:'€',GBP:'£',GNF:'GNF',XOF:'F CFA',XAF:'F CFA',MAD:'MAD',NGN:'₦',CNY:'¥'};
-let rates=Object.assign({},DEF_RATES,store.get('calc.rates',{}));
+let manual=store.get('calc.rates',{});if(!manual||typeof manual!=='object')manual={};
+let auto=store.get('calc.auto',null);
+let rates={};
+function recompute(){rates=Object.assign({},DEF_RATES,(auto&&auto.d)||{},manual);}
+recompute();
 function curCfg(){
   return{from:'USD',to:'GNF',val:'100',units:Object.keys(DEF_RATES).map(c=>({id:c,name:NAMES[c],sym:SYMS[c],to:x=>x/rates[c],from:b=>b*rates[c]}))};
 }
@@ -1065,13 +1245,115 @@ function buildRates(){
   Object.keys(DEF_RATES).filter(c=>c!=='USD').forEach(c=>{
     const l=document.createElement('label');l.innerHTML='<span class="mono">'+c+'</span><span class="rl">1 USD =</span><input class="in" inputmode="decimal" aria-label="Taux '+c+'">';
     const i=l.querySelector('input');i.value=String(rates[c]).replace('.',',');
-    i.addEventListener('input',()=>{const v=parse(i.value);if(v&&v>0){rates[c]=v;const diff={};Object.keys(rates).forEach(k=>{if(rates[k]!==DEF_RATES[k])diff[k]=rates[k];});store.set('calc.rates',diff);
+    i.addEventListener('input',()=>{const v=parse(i.value);if(v&&v>0){manual[c]=v;store.set('calc.rates',manual);recompute();
       const cs=curC.state();if(cs){const inp=curRoot.querySelector('input');curState.val=inp.value;}mountCur(true);}});
     box.appendChild(l);
   });
 }
-$('#rates-reset').addEventListener('click',()=>{rates=Object.assign({},DEF_RATES);store.set('calc.rates',{});buildRates();mountCur(true);});
-mountCur(false);buildRates();
+$('#rates-reset').addEventListener('click',()=>{manual={};store.set('calc.rates',{});recompute();buildRates();mountCur(true);rtInfo();});
+function rtInfo(msg){
+  const el=$('#rt-info');
+  if(msg){el.textContent=msg;return;}
+  el.textContent=auto&&auto.date?'Taux du '+new Date(auto.date).toLocaleDateString(LOC,{day:'numeric',month:'long'}):'Taux de départ (approximatifs)';
+}
+async function fetchRates(manualClick){
+  if(navigator.onLine===false){if(manualClick)toast('Pas de connexion Internet');return;}
+  const urls=['https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json','https://latest.currency-api.pages.dev/v1/currencies/usd.json'];
+  if(manualClick)rtInfo('Mise à jour…');
+  for(const u of urls){
+    try{
+      const ctrl=window.AbortController?new AbortController():null;const tm=setTimeout(()=>ctrl&&ctrl.abort(),9000);
+      const r=await fetch(u,{cache:'no-store',signal:ctrl?ctrl.signal:undefined});clearTimeout(tm);
+      if(!r.ok)continue;const j=await r.json(),src=j&&j.usd;if(!src)continue;
+      const d={};Object.keys(DEF_RATES).forEach(c=>{const v=src[c.toLowerCase()];if(c!=='USD'&&typeof v==='number'&&v>0&&isFinite(v))d[c]=v;});
+      if(!d.GNF)continue;
+      auto={t:Date.now(),date:j.date||new Date().toISOString().slice(0,10),d};store.set('calc.auto',auto);
+      recompute();buildRates();const cs=curC.state();if(cs){const inp=curRoot.querySelector('input');curState.val=inp.value;}mountCur(true);rtInfo();
+      if(manualClick)toast('Taux mis à jour');return;
+    }catch(e){}
+  }
+  rtInfo();if(manualClick)toast('Mise à jour impossible pour le moment');
+}
+$('#rt-upd').addEventListener('click',()=>{buzz();fetchRates(true);});
+window.addEventListener('online',()=>fetchRates(false));
+mountCur(false);buildRates();rtInfo();
+if(!auto||Date.now()-auto.t>6*3600e3)setTimeout(()=>fetchRates(false),1500);
+
+/* ---------- langue : français / anglais ---------- */
+const EN={
+'Standard':'Standard','Scientifique':'Scientific','Calcul':'Calc','Convertir':'Convert','Devises':'Currency','Outils':'Tools','Notes':'Notes',
+'Convertisseur':'Converter','Historique':'History','Effacer':'Clear','Fermer':'Close','Terminé':'Done','Supprimer':'Delete','Annuler':'Undo','Rétablir':'Redo',
+'Longueur':'Length','Masse':'Mass','Volume':'Volume','Surface':'Area','Température':'Temperature','Vitesse':'Speed','Données':'Data','Durée':'Duration',
+'Millimètre':'Millimeter','Centimètre':'Centimeter','Mètre':'Meter','Kilomètre':'Kilometer','Pouce':'Inch','Pied':'Foot','Yard':'Yard','Mille':'Mile',
+'Milligramme':'Milligram','Gramme':'Gram','Kilogramme':'Kilogram','Tonne':'Tonne','Livre':'Pound','Once':'Ounce','Carat':'Carat','Once troy (or)':'Troy ounce (gold)',
+'Millilitre':'Milliliter','Litre':'Liter','Mètre cube':'Cubic meter','Gallon US':'US gallon','Once liquide US':'US fluid ounce',
+'Pied carré':'Square foot','Hectare':'Hectare','Acre':'Acre','Celsius':'Celsius','Fahrenheit':'Fahrenheit','Kelvin':'Kelvin',
+'Kilomètre/heure':'Kilometer/hour','Mètre/seconde':'Meter/second','Mile/heure':'Mile/hour','Nœud':'Knot',
+'Octet':'Byte','Kilooctet':'Kilobyte','Mégaoctet':'Megabyte','Gigaoctet':'Gigabyte','Téraoctet':'Terabyte','Seconde':'Second','Minute':'Minute','Heure':'Hour','Jour':'Day','Semaine':'Week',
+'Dollar américain':'US dollar','Euro':'Euro','Livre sterling':'Pound sterling','Franc guinéen':'Guinean franc','FCFA (UEMOA)':'CFA franc (WAEMU)','FCFA (CEMAC)':'CFA franc (CEMAC)','Dirham marocain':'Moroccan dirham','Naira nigérian':'Nigerian naira','Yuan chinois':'Chinese yuan',
+'De':'From','Vers':'To','Valeur':'Value','Montant':'Amount','Résultat':'Result','Pourcentage':'Percentage','Personnes':'People','Quantité':'Quantity',
+'% de':'% of','Variation':'Change','Part':'Share','TVA':'VAT','Remise':'Discount','Marge':'Margin','Bénéfice':'Profit','Ticket':'Receipt','Réglages':'Settings','Prêt':'Loan','Partage':'Split',
+'Calculer un pourcentage d\'un montant.':'Work out a percentage of an amount.','Hausse ou baisse entre deux valeurs.':'Increase or decrease between two values.',
+'Quelle part représente une valeur dans un total.':'What share a value represents of a total.','Passer du hors taxe au TTC, ou l\'inverse.':'Convert from excl. tax to incl. tax, or the reverse.',
+'Prix final après une réduction.':'Final price after a discount.','Mensualité d\'un prêt à taux fixe.':'Monthly payment of a fixed-rate loan.','Répartir une addition entre plusieurs personnes.':'Split a bill between several people.',
+'Prix de vente à partir du prix d\'achat et de la marge voulue.':'Selling price from the purchase price and the margin you want.','Gain réalisé entre un prix d\'achat et un prix de vente.':'Gain between a purchase price and a selling price.',
+'Pourcentage':'Percentage','Montant moins ce pourcentage':'Amount minus this percentage','Montant plus ce pourcentage':'Amount plus this percentage','Valeur de départ':'Starting value','Valeur d\'arrivée':'Ending value','Écart':'Difference',
+'Part du total':'Share of total','Total':'Total','Taux de TVA':'VAT rate','Sens':'Direction','HT vers TTC':'Excl. to incl. tax','TTC vers HT':'Incl. to excl. tax','Montant TTC':'Amount incl. tax','Montant hors taxe':'Amount excl. tax','Hors taxe':'Excl. tax','TTC':'Incl. tax',
+'Prix initial':'Original price','Prix final':'Final price','Économie':'Savings','Capital emprunté':'Amount borrowed','Taux annuel':'Annual rate','Mensualité':'Monthly payment','Total remboursé':'Total repaid','Coût du crédit':'Cost of credit',
+'Pourboire':'Tip','Par personne':'Per person','Total avec pourboire':'Total with tip','Prix d\'achat':'Purchase price','Prix de vente':'Selling price','Marge voulue':'Target margin','Calculée sur':'Calculated on','Le coût':'The cost','La vente':'The sale',
+'Marge sur le coût':'Margin on cost','Marge sur la vente':'Margin on sale','Bénéfice total':'Total profit','Bénéfice par unité':'Profit per unit',
+'Toutes les devises':'All currencies','Toutes les unités':'All units','Modifier les taux':'Edit rates','Actualiser':'Refresh','Remettre les taux automatiques':'Reset to automatic rates',
+'Taux de départ (approximatifs)':'Starting rates (approximate)','Taux mis à jour':'Rates updated','Mise à jour…':'Updating…',
+'GNF, FCFA, dollar, euro et autres. Les taux de départ sont approximatifs : saisissez le taux du jour pour un résultat exact.':'GNF, CFA franc, dollar, euro and more. Starting rates are approximate: enter today\'s rate for an exact result.',
+'Chaque ligne indique combien d\'unités de la devise valent 1 dollar américain. Les taux se mettent à jour tout seuls quand Internet est disponible ; un taux que vous saisissez vous-même est conservé jusqu\'à « Remettre les taux de départ ».':'Each line shows how many units of the currency equal 1 US dollar. Rates update by themselves when the Internet is available; a rate you enter yourself is kept until you reset it.',
+'Vos calculs apparaîtront ici. Touchez un résultat pour le réutiliser.':'Your calculations will appear here. Tap a result to reuse it.','+ Ajouter à une note':'+ Add to a note',
+'Écrans de calcul':'Calculation screens','Ajouter un écran':'Add a screen','Retour à la calculatrice':'Back to calculator','Écran 1':'Screen 1','Garder cet écran':'Keep this screen','Retirer cet écran':'Remove this screen','Renommer l\'écran':'Rename screen','Effacer le calcul de cet écran':'Clear this screen\'s calculation','Copier ce calcul dans un nouvel écran':'Copy this calculation to a new screen','Changer le nom de cet écran':'Change this screen\'s name','Options de l\'écran':'Screen options','Vider':'Clear',
+'Calcul impossible':'Cannot calculate','Nombre de décimales':'Decimal places','Changer de thème':'Change theme','Mode':'Mode','Sections':'Sections','Basculer degrés et radians':'Switch degrees and radians','Effacer un caractère':'Delete one character','Mémoire':'Memory',
+'Copier ou partager le résultat':'Copy or share the result','Ajouter à une note':'Add to a note','Copier ou partager':'Copy or share','Le résultat seul':'The result only','Copier':'Copy','Envoyer par WhatsApp':'Send via WhatsApp','Envoyer par SMS':'Send via SMS','Partager…':'Share…','Partager':'Share','Partager le ticket':'Share the receipt',
+'Résultat copié':'Result copied','Calcul copié':'Calculation copied','Ticket copié':'Receipt copied','Copie impossible':'Copy failed','Faites d’abord un calcul':'Do a calculation first','Rien à copier : faites d’abord un calcul':'Nothing to copy: do a calculation first','Rien à ajouter : faites d’abord un calcul':'Nothing to add: do a calculation first',
+'M+  Ajouter à la mémoire':'M+  Add to memory','M−  Soustraire de la mémoire':'M−  Subtract from memory','MR  Rappeler la mémoire':'MR  Recall memory','MC  Effacer la mémoire':'MC  Clear memory','Mémoire vide':'Memory empty','Mémoire effacée':'Memory cleared','La mémoire est vide':'Memory is empty',
+'Choisissez d’abord une opération (+, −, ×, ÷)':'Choose an operation first (+, −, ×, ÷)',
+'Nouvelle note':'New note','+ Nouvelle note':'+ New note','Note vide':'Empty note','Liste à cocher':'Checklist','Cases à cocher à cocher une à une':'Tick items one by one','Liste de courses':'Shopping list','Riz, huile, sucre…':'Rice, oil, sugar…','Dépenses du jour':'Today\'s expenses','Un montant par ligne':'One amount per line',
+'Rechercher dans les notes':'Search notes','Rechercher':'Search','Aucune note trouvée.':'No notes found.','Aucune note pour le moment. Touchez + pour en créer une, ou ajoutez un calcul depuis la calculatrice.':'No notes yet. Tap + to create one, or add a calculation from the calculator.',
+'Nouveau':'New','Titre':'Title','Titre de la note':'Note title','Texte de la note':'Note text','Écrivez votre note ici…':'Write your note here…','‹ Notes':'‹ Notes','☑ Case':'☑ Box','Case à cocher':'Checkbox','Nombre → calcul':'Number → calc','Sans titre':'Untitled','Note vide':'Empty note',
+'Note enregistrée':'Note saved','Note supprimée':'Note deleted','Utiliser un nombre':'Use a number','Aucun nombre dans cette note.':'No numbers in this note.','Supprimer cette note ?':'Delete this note?','Rien à afficher.':'Nothing to show.',
+'Ajouter la ligne':'Add line','Article':'Item','Qté':'Qty','Prix':'Price','Additionnez des articles (nom, quantité, prix) et gardez le total dans une note.':'Add up items (name, quantity, price) and keep the total in a note.','Enregistrer dans une note':'Save to a note','Le ticket est vide':'The receipt is empty','Saisissez une quantité et un prix':'Enter a quantity and a price','Vider le ticket ?':'Clear the receipt?',
+'Ces réglages sont gardés sur cet appareil.':'These settings are kept on this device.','Séparateur des milliers':'Thousands separator','Thème':'Theme','Auto':'Auto','Clair':'Light','Sombre':'Dark','Vibration des touches':'Key vibration','Oui':'Yes','Non':'No','Langue':'Language',
+'Sauvegarde de vos données':'Back up your data','Notes, historique, écrans, taux et réglages. À garder en lieu sûr (par exemple dans vos messages WhatsApp).':'Notes, history, screens, rates and settings. Keep it somewhere safe (for example in your WhatsApp messages).',
+'Copier la sauvegarde':'Copy backup','Télécharger un fichier':'Download a file','Restaurer':'Restore','Collez ici le texte de la sauvegarde':'Paste the backup text here','Restaurer ce texte':'Restore this text','Choisir un fichier':'Choose a file',
+'Sauvegarde copiée : collez-la dans un message':'Backup copied: paste it into a message','Sauvegarde non reconnue':'Backup not recognised','La sauvegarde est vide':'The backup is empty','Restauration impossible':'Restore failed','Collez d’abord la sauvegarde':'Paste the backup first','Fichier préparé':'File ready','Téléchargement impossible : utilisez « Copier »':'Download failed: use “Copy”',
+'Remplacer les données actuelles (notes, historique, réglages) par cette sauvegarde ?':'Replace current data (notes, history, settings) with this backup?',
+'Pas de connexion Internet':'No Internet connection','Mise à jour impossible pour le moment':'Update not possible right now',
+'Mise à jour disponible':'Update available','Télécharger':'Download','Inverser':'Swap','Choisir':'Choose','Choisir l\'unité d\'arrivée':'Choose target unit','Choisir l\'unité de départ':'Choose source unit','Valeur à convertir':'Value to convert'
+};
+const EN_RE=[
+ [/^Taux du (.+)$/,'Rates of $1'],[/^Mémoire : (.+)$/,'Memory: $1'],[/^Ajouté à « (.+) »$/,'Added to “$1”'],[/^Ajouté à une nouvelle note$/,'Added to a new note'],
+ [/^Ticket du (.+)$/,'Receipt of $1'],[/^Dépenses du (.+)$/,'Expenses of $1'],[/^Écran (\d+)$/,'Screen $1'],[/^Limite de (\d+) écrans atteinte$/,'Limit of $1 screens reached'],
+ [/^Supprimer « (.+) » \?$/,'Delete “$1”?'],[/^Unité : (.+)$/,'Unit: $1'],[/^Taux (\w+)$/,'$1 rate'],[/^(.+) copié$/,'$1 copied'],
+ [/^(.+) \(copie\)$/,'$1 (copy)'],[/^(\d[\d\s ,.]*) Go$/,'$1 GB'],[/^(\d[\d\s ,.]*) Mo$/,'$1 MB'],[/^(\d[\d\s ,.]*) Ko$/,'$1 KB'],[/^(\d[\d\s ,.]*) To$/,'$1 TB'],
+ [/^(\d[\d\s ,.]*) nd$/,'$1 kn'],[/^(\d[\d\s ,.]*) sem\.$/,'$1 wk'],[/^(\d[\d\s ,.]*) mois$/,'$1 months'],[/^mois$/,'months'],[/^sem\.$/,'wk'],[/^Go$/,'GB'],[/^Mo$/,'MB'],[/^Ko$/,'KB'],[/^To$/,'TB'],[/^nd$/,'kn']
+];
+function trEN(t){
+  const k=t.trim();if(!k)return t;
+  let r=EN[k];
+  if(r===undefined)for(const [re,rep] of EN_RE){if(re.test(k)){r=k.replace(re,rep);break;}}
+  return r===undefined?t:t.replace(k,r);
+}
+if(LANG==='en'){
+  const ATTRS=['aria-label','placeholder','title'];
+  const fixNode=n=>{
+    if(n.nodeType===3){const p=n.parentNode;if(p&&(p.tagName==='SCRIPT'||p.tagName==='STYLE'||p.tagName==='TEXTAREA'))return;const v=trEN(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v;}
+    else if(n.nodeType===1){if(n.tagName==='SCRIPT'||n.tagName==='STYLE')return;ATTRS.forEach(a=>{const v=n.getAttribute&&n.getAttribute(a);if(v){const t=trEN(v);if(t!==v)n.setAttribute(a,t);}});n.childNodes.forEach(fixNode);}
+  };
+  document.documentElement.lang='en';
+  fixNode(document.body);
+  new MutationObserver(ms=>{ms.forEach(m=>{
+    if(m.type==='childList')m.addedNodes.forEach(fixNode);
+    else if(m.type==='characterData')fixNode(m.target);
+    else if(m.type==='attributes')fixNode(m.target);
+  });}).observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:ATTRS});
+}
+window.__langSeg=()=>seg(L('Langue','Language'),[['fr','Français'],['en','English']],LANG,v=>{store.set('calc.lang',v);location.reload();});
 
 /* ---------- outils ---------- */
 const P=(v,i)=>v[i];
@@ -1086,11 +1368,18 @@ const TOOLS=[
    out:v=>{const r=v.t/100;const ht=v.w==='ht'?v.m:v.m/(1+r);const ttc=ht*(1+r);return[{l:v.w==='ht'?'Montant TTC':'Montant hors taxe',v:v.w==='ht'?ttc:ht,main:1},{l:'Hors taxe',v:ht},{l:'TVA',v:ttc-ht},{l:'TTC',v:ttc}];}},
  {id:'rem',name:'Remise',desc:'Prix final après une réduction.',fields:[{k:'p',l:'Prix initial',v:'250000'},{k:'r',l:'Remise',v:'15',s:'%'}],
    out:v=>[{l:'Prix final',v:v.p*(1-v.r/100),main:1},{l:'Économie',v:v.p*v.r/100}]},
+ {id:'marge',name:'Marge',desc:'Prix de vente à partir du prix d\'achat et de la marge voulue.',fields:[{k:'a',l:'Prix d\'achat',v:'60000',full:1},{k:'t',l:'Marge voulue',v:'25',s:'%'},{k:'w',l:'Calculée sur',sel:[['c','Le coût'],['v','La vente']],v:'c'}],
+   out:v=>{const r=v.t/100;const pv=v.w==='c'?v.a*(1+r):v.a/(1-r);return[{l:'Prix de vente',v:pv,main:1},{l:'Bénéfice',v:pv-v.a},{l:'Marge sur le coût',v:(pv-v.a)/v.a*100,s:' %',dec:2},{l:'Marge sur la vente',v:(pv-v.a)/pv*100,s:' %',dec:2}];}},
+ {id:'benef',name:'Bénéfice',desc:'Gain réalisé entre un prix d\'achat et un prix de vente.',fields:[{k:'a',l:'Prix d\'achat',v:'60000'},{k:'b',l:'Prix de vente',v:'75000'},{k:'q',l:'Quantité',v:'1',full:1}],
+   out:v=>[{l:'Bénéfice total',v:(v.b-v.a)*v.q,main:1},{l:'Bénéfice par unité',v:v.b-v.a},{l:'Marge sur le coût',v:(v.b-v.a)/v.a*100,s:' %',dec:2},{l:'Marge sur la vente',v:(v.b-v.a)/v.b*100,s:' %',dec:2}]},
+ {id:'ticket',name:'Ticket',special:renderTicket},
+ {id:'settings',name:'Réglages',special:renderSettings},
  {id:'pret',name:'Prêt',desc:'Mensualité d\'un prêt à taux fixe.',fields:[{k:'c',l:'Capital emprunté',v:'5000000',full:1},{k:'t',l:'Taux annuel',v:'12',s:'%'},{k:'n',l:'Durée',v:'24',s:'mois'}],
    out:v=>{const i=v.t/1200,n=v.n;const m=i===0?v.c/n:v.c*i/(1-Math.pow(1+i,-n));return[{l:'Mensualité',v:m,main:1},{l:'Total remboursé',v:m*n},{l:'Coût du crédit',v:m*n-v.c}];}},
  {id:'part2',name:'Partage',desc:'Répartir une addition entre plusieurs personnes.',fields:[{k:'t',l:'Total',v:'185000',full:1},{k:'p',l:'Pourboire',v:'10',s:'%'},{k:'n',l:'Personnes',v:'4'}],
    out:v=>{const tip=v.t*v.p/100;return[{l:'Par personne',v:(v.t+tip)/v.n,main:1},{l:'Pourboire',v:tip},{l:'Total avec pourboire',v:v.t+tip}];}}
 ];
+['ticket','settings'].forEach(id=>{const i=TOOLS.findIndex(t=>t.id===id);if(i>=0)TOOLS.push(TOOLS.splice(i,1)[0]);});
 let toolId=store.get('calc.tool','pct');
 const toolChips=$('#tool-chips'),toolBox=$('#tool');
 TOOLS.forEach(t=>{const b=document.createElement('button');b.className='chip';b.dataset.id=t.id;b.textContent=t.name;b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>setTool(t.id));toolChips.appendChild(b);});
@@ -1098,6 +1387,7 @@ function setTool(id){
   toolId=TOOLS.some(t=>t.id===id)?id:'pct';store.set('calc.tool',toolId);
   const t=TOOLS.find(x=>x.id===toolId);
   toolChips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.id===toolId)));
+  if(t.special){t.special(toolBox);return;}
   toolBox.innerHTML='<p class="sub" style="margin:0 0 4px">'+t.desc+'</p><div class="fields"></div><div class="outs"></div>';
   const fb=toolBox.querySelector('.fields'),ob=toolBox.querySelector('.outs');
   const els={};
