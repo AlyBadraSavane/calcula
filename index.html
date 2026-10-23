@@ -622,6 +622,7 @@ function paintCard(i){
   const card=$('#screens').children[i];if(!card)return;
   const st=scrState(i);
   card.classList.toggle('on',i===S.cur);
+  if(/^Écran \d+$/.test(S.screens[i].name))S.screens[i].name='Écran '+(i+1); /* les noms par défaut suivent la position */
   card.querySelector('.nm').textContent=S.screens[i].name;
   card.querySelector('.ic').innerHTML=i===S.cur?PEN:DOT;
   const e=card.querySelector('.e'),r=card.querySelector('.r');
