@@ -1096,91 +1096,302 @@ const flGNF=n=>{const r=Math.round(n);return (Object.is(r,-0)?'0':flFmt(r,0))+' 
 const flG=n=>flFmt(n,3)+' g';
 const flPct=n=>flFmt(n,2)+' %';
 const flKtxt=v=>flFmt(parseFloat(v),2);
-function flText(inp,res){
-  const d=new Date(),when=d.toLocaleDateString(LOC)+' '+d.toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'});
-  const p=res.p,r=res.r,L2=[];
-  L2.push(L('BORDEREAU FONTE / LINGOT — Calcula','MELT / INGOT SLIP — Calcula'),L('Date : ','Date: ')+when,'');
-  L2.push(L('DONNÉES SAISIES','ENTERED DATA'));
-  const row=(label,val)=>L2.push(label+' : '+val);
-  if(p.pf!=null)row(L('Poids du lingot après fonte','Ingot weight after melting'),flG(p.pf));
-  if(p.tit!=null)row(L('Titrage après fonte','Fineness after melting'),flKtxt(p.tit)+' K');
-  if(p.p22!=null)row(L('Prix de référence 22K (saisi à la main)','22K reference price (entered by hand)'),flGNF(p.p22)+'/g');
-  if(p.pb!=null)row(L('Poids brut initial','Initial gross weight'),flG(p.pb));
-  if(p.pt!=null)row(L('Prix terrain','Field price'),flGNF(p.pt)+'/g');
-  if(p.fr!=null)row(L('Frais','Costs'),flGNF(p.fr));
-  L2.push('',L('RÉSULTATS','RESULTS'));
-  if(r.valeur!==undefined){row(L('Valeur du lingot','Ingot value'),flGNF(r.valeur));L2.push('  '+L('Poids fondu × Titrage × Prix 22K ÷ 22','Melted weight × Fineness × 22K price ÷ 22'));}
-  if(r.prixEq!==undefined){row(L('Prix équivalent au titrage','Price equivalent to fineness'),flGNF(r.prixEq)+'/g');L2.push('  '+L('Prix 22K × Titrage ÷ 22','22K price × Fineness ÷ 22'));}
-  if(r.cout!==undefined){row(L('Coût d\'achat terrain','Field purchase cost'),flGNF(r.cout));L2.push('  '+L('Poids brut × Prix terrain','Gross weight × Field price'));}
-  if(r.benefice!==undefined){row(L('Bénéfice net','Net profit'),flGNF(r.benefice));L2.push('  '+L('Valeur du lingot − Coût terrain − Frais','Ingot value − Field cost − Costs')+(res.fraisParDefaut?L(' (frais = 0)',' (costs = 0)'):''));}
-  if(r.perte!==undefined){row(L('Perte au feu','Loss on melting'),flG(r.perte)+(r.pertePct!==undefined?' ('+flPct(r.pertePct)+')':''));L2.push('  '+L('Poids brut − Poids après fonte','Gross weight − Weight after melting'));}
-  if(r.orFin!==undefined){row(L('Or fin estimé (théorique)','Estimated fine gold (theoretical)'),flG(r.orFin));L2.push('  '+L('Poids fondu × Titrage ÷ 24','Melted weight × Fineness ÷ 24'));}
-  if(r.purete!==undefined){row(L('Pureté théorique','Theoretical purity'),flPct(r.purete));L2.push('  '+L('Titrage ÷ 24 × 100','Fineness ÷ 24 × 100'));}
-  res.warn.forEach(w=>{if(w==='perteNegative')L2.push('',L('⚠ Perte au feu négative : le poids après fonte dépasse le poids brut. Vérifiez la saisie ou les mesures.','⚠ Negative loss: the weight after melting exceeds the gross weight. Check the entries or measurements.'));});
-  L2.push('',L('Pureté théorique calculée à partir du titrage saisi ; ce n\'est pas une mesure de laboratoire. Prix de référence saisi manuellement : aucune cotation en direct.','Theoretical purity computed from the entered fineness; it is not a laboratory measurement. Reference price entered manually: no live quote.'));
-  return L2.join('\n');
+/*FD-START — documents « Fonte / Lingot » : modèle unique + mise en page + PDF + texte (code pur, testé par tests/bordereau.test.mjs) */
+/* Largeurs des polices standard Helvetica (1/1000 em) : permettent de mesurer le texte sans dépendre de la police de l'appareil. */
+const FD_R=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,
+ 667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,
+ 556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const FD_B=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,
+ 722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,
+ 556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+const FD_X={'×':584,'÷':584,'•':350,'°':400,'«':556,'»':556,'–':556,'—':1000,'…':1000,'’':222,'€':556,'N':0};
+function fdW(s,bold,size){
+  let w=0;const T=bold?FD_B:FD_R;
+  for(const ch of String(s)){
+    let c=ch.charCodeAt(0);
+    if(FD_X[ch]!==undefined&&ch!=='N'){w+=FD_X[ch];continue;}
+    if(c<32||c>126){const b=ch.normalize('NFD')[0].charCodeAt(0);c=(b>=32&&b<=126)?b:63;}
+    w+=T[c-32];
+  }
+  return w*size/1000;
 }
-/* — image HD (PNG, dessinée sur un canvas : aucune bibliothèque) — */
-async function flImage(text){
-  try{if(document.fonts&&document.fonts.load){await document.fonts.load('600 40px Sora');await document.fonts.load('500 30px Manrope');}}catch(e){}
-  const W=1080,PAD=64,LH=44,lines=[];
-  const cv=document.createElement('canvas');const cx=cv.getContext('2d');
-  cx.font='500 30px Manrope, Arial, sans-serif';
-  text.split('\n').forEach(raw=>{
-    if(raw==='')return lines.push('');
-    const ind=raw.match(/^\s*/)[0];let cur='';
-    raw.slice(ind.length).split(' ').forEach(w=>{const t=cur?cur+' '+w:ind+w;if(cx.measureText(t).width>W-PAD*2&&cur){lines.push(cur);cur=ind+w;}else cur=t;});
-    lines.push(cur);
+function fdWrap(s,bold,size,maxW){
+  const out=[];let cur='';
+  String(s).split(' ').forEach(w=>{const t=cur?cur+' '+w:w;if(fdW(t,bold,size)>maxW&&cur){out.push(cur);cur=w;}else cur=t;});
+  if(cur)out.push(cur);return out;
+}
+/* Nombres des documents : espace pour les milliers, virgule décimale, signe « - » conservé (réglages de l'application inchangés). */
+function fdNum(n,maxDec){
+  if(typeof n!=='number'||!isFinite(n))return '—';
+  let s=new Intl.NumberFormat('en-US',{maximumFractionDigits:maxDec}).format(n);
+  if(/^-0(\.0+)?$/.test(s))s=s.slice(1);
+  return s.replace(/,/g,'\u0001').replace(/\./g,',').replace(/\u0001/g,' ');
+}
+const fdGNF=n=>fdNum(Math.round(n),0);
+function fdPad(n){return String(n).padStart(2,'0');}
+function flDocModel(inp,res,o){
+  o=o||{};const now=o.now||new Date(),p=res.p,r=res.r;
+  const row=(label,v,unit,f,extra)=>Object.assign({label,value:(v==null?null:f(v)),unit},extra||{});
+  const g3=n=>fdNum(n,3),k2=n=>fdNum(n,2);
+  const frErr=!!res.err.fr;
+  const NAME={pf:'poids après fonte',tit:'titrage',p22:'prix 22K',pb:'poids brut',pt:'prix terrain',valeur:'valeur du lingot',cout:'coût terrain',frais:'frais valides'};
+  const hint=a=>a&&a.length?'À renseigner : '+a.map(x=>NAME[x]||x).join(', '):'';
+  const res4=[
+    {key:'valeur',label:'Valeur du lingot',formula:'Poids fondu × Titrage × Prix 22K ÷ 22',value:r.valeur===undefined?null:fdGNF(r.valeur),unit:'GNF',hint:hint(res.need.valeur),icon:'coins'},
+    {key:'prixEq',label:'Prix équivalent au titrage',formula:'Prix 22K × Titrage ÷ 22',value:r.prixEq===undefined?null:fdGNF(r.prixEq),unit:'GNF / g',hint:hint(res.need.prixEq),icon:'tag'},
+    {key:'cout',label:'Coût d\'achat terrain',formula:'Poids brut × Prix terrain',value:r.cout===undefined?null:fdGNF(r.cout),unit:'GNF',hint:hint(res.need.cout),icon:'coins'},
+    {key:'benefice',label:'Bénéfice net de l\'opération',formula:'Valeur du lingot - Coût terrain - Frais',value:r.benefice===undefined?null:fdGNF(r.benefice),unit:'GNF',hint:hint(res.need.benefice),icon:'up',
+     state:r.benefice===undefined?null:(Math.round(r.benefice)>0?'pos':(Math.round(r.benefice)<0?'neg':'zero'))}
+  ];
+  const m={
+    number:o.number||'',date:fdPad(now.getDate())+'/'+fdPad(now.getMonth()+1)+'/'+now.getFullYear(),time:fdPad(now.getHours())+':'+fdPad(now.getMinutes()),
+    A:[row('Poids du lingot après fonte',p.pf,'g',g3,{icon:'scale'}),row('Titrage après fonte',p.tit,'K',k2,{icon:'ingot'}),row('Prix de référence 22K',p.p22,'GNF / g',k2,{icon:'coins'})],
+    B:[row('Poids brut initial reçu de l\'agent',p.pb,'g',g3,{icon:'scale'}),row('Prix unitaire négocié sur le terrain',p.pt,'GNF / g',k2,{icon:'coins'}),
+       row('Frais de traitement et de fonte',p.fr,'GNF',k2,{icon:'doc',note:(p.fr==null&&!frErr)?'compté pour 0':''})],
+    results:res4,
+    others:{
+      perte:{label:'Perte au feu',value:r.perte===undefined?null:fdNum(r.perte,3),unit:'g',sub:r.pertePct===undefined?'':('Soit '+fdNum(r.pertePct,2)+' %'),neg:r.perte!==undefined&&r.perte<0,hint:hint(res.need.perte),icon:'scale'},
+      orFin:{label:'Or fin estimé (théorique)',value:r.orFin===undefined?null:fdNum(r.orFin,4),unit:'g',sub:'Poids fondu × Titrage ÷ 24',hint:hint(res.need.orFin),icon:'gem'},
+      purete:{label:'Pureté théorique',value:r.purete===undefined?null:fdNum(r.purete,4),unit:'%',sub:'Titrage ÷ 24 × 100',hint:hint(res.need.purete),icon:'star'}
+    },
+    warnings:res.warn.map(w=>w==='perteNegative'?'Perte au feu négative : le poids après fonte dépasse le poids brut. Vérifiez la saisie ou la différence de mesure.':'').filter(Boolean),
+    complete:r.valeur!==undefined&&r.benefice!==undefined,
+    fraisParDefaut:!!res.fraisParDefaut,
+    formulas:['Valeur du lingot = Poids fondu × Titrage × Prix 22K ÷ 22','Prix équivalent = Prix 22K × Titrage ÷ 22','Coût terrain = Poids brut × Prix terrain','Bénéfice net = Valeur du lingot - Coût terrain - Frais',
+      'Perte au feu = Poids brut - Poids fondu','Perte (%) = Perte au feu ÷ Poids brut × 100, si brut > 0','Or fin estimé = Poids fondu × Titrage ÷ 24','Pureté théorique = Titrage ÷ 24 × 100'],
+    purityNote:'La pureté est théorique (calculée à partir du titrage saisi) : ce n\'est pas une mesure de laboratoire.',
+    disclaimer:'Estimations calculées localement par Calcula à partir des seules données saisies ; elles ne constituent pas une valeur garantie. Le prix de référence 22K est saisi manuellement : aucune cotation en direct.'
+  };
+  return m;
+}
+/* Texte copiable (WhatsApp / SMS) : mêmes données que le PDF et l'image. */
+function flToText(m){
+  const L=[];const nr='Non renseigné';
+  L.push('BORDEREAU FONTE / LINGOT — CALCULA','N° '+m.number+' · '+m.date+' à '+m.time,'');
+  const kv=(label,val,unit,extra)=>'• '+label+' : '+(val==null?nr+(extra?' ('+extra+')':''):val+' '+unit);
+  L.push('PARAMÈTRES DE FONTE');m.A.forEach(x=>L.push(kv(x.label,x.value,x.unit)));
+  L.push('','ACHAT INITIAL ET FRAIS');m.B.forEach(x=>L.push(kv(x.label,x.value,x.unit,x.note)));
+  L.push('','RÉSULTATS FINANCIERS');
+  m.results.forEach(x=>{
+    if(x.value==null)L.push('• '+x.label+' : non calculé ('+(x.hint||'données manquantes').toLowerCase()+')');
+    else{L.push('• '+x.label+' : '+x.value+' '+x.unit+(x.key==='benefice'?(x.state==='neg'?' (perte)':x.state==='pos'?' (bénéfice)':''):''));}
+    L.push('    '+x.formula);
   });
-  const H=PAD*2+150+lines.length*LH+40;
-  cv.width=W;cv.height=H;
-  cx.fillStyle='#ffffff';cx.fillRect(0,0,W,H);
-  const g=cx.createLinearGradient(0,0,W,0);g.addColorStop(0,'#f4d684');g.addColorStop(1,'#c0903a');
-  cx.fillStyle=g;cx.fillRect(0,0,W,120);
-  cx.fillStyle='#2a1c05';cx.font='700 44px Sora, Arial, sans-serif';cx.textBaseline='alphabetic';
-  cx.fillText(lines[0]||'',PAD,78);
-  let y=120+PAD+LH;
-  lines.slice(1).forEach(l=>{
-    const head=/^[A-ZÉ][A-ZÉ \/]{5,}$/.test(l),sub=/^\s{2}/.test(l);
-    cx.font=head?'700 30px Sora, Arial, sans-serif':(sub?'500 25px Manrope, Arial, sans-serif':'600 30px Manrope, Arial, sans-serif');
-    cx.fillStyle=head?'#9a6b12':(sub?'#6b7487':(l.startsWith('⚠')?'#c43d3d':'#141926'));
-    cx.fillText(l,PAD,y);y+=LH;
+  if(m.fraisParDefaut&&m.results[3].value!=null)L.push('    (frais non renseignés : comptés pour 0)');
+  L.push('','AUTRES INDICATEURS');
+  const o=m.others;
+  L.push(o.perte.value==null?'• Perte au feu : non calculée ('+(o.perte.hint||'').toLowerCase()+')':'• Perte au feu : '+o.perte.value+' g'+(o.perte.sub?' ('+o.perte.sub.replace('Soit ','')+')':''));
+  L.push(o.orFin.value==null?'• Or fin estimé (théorique) : non calculé':'• Or fin estimé (théorique) : '+o.orFin.value+' g');
+  L.push(o.purete.value==null?'• Pureté théorique : non calculée':'• Pureté théorique : '+o.purete.value+' %');
+  m.warnings.forEach(w=>L.push('','⚠ '+w));
+  L.push('',m.purityNote,'','FORMULES UTILISÉES');m.formulas.forEach(f=>L.push('• '+f));
+  L.push('',m.disclaimer,'','CALCULA · Outil de calcul métier indépendant · Fonctionne hors ligne');
+  return L.join('\n');
+}
+/* Mise en page A4 (points, origine en haut à gauche) sous forme d'instructions de dessin communes au PDF et à l'image. */
+function flBuildOps(m){
+  const W=595,H=842,ops=[];
+  const C={ink:'#141926',gold:'#c9a24b',goldD:'#8d6410',champ:'#f1dfa8',ivory:'#fbf6e8',paper:'#fffdf8',line:'#e6dfcf',grey:'#6b7487',green:'#1f7a45',greenBg:'#e5f3e9',red:'#b3322f',redBg:'#fbe8e7',black:'#0c0f16',neutralBg:'#f1efe8',dark:'#161b27'};
+  const rect=(x,y,w,h,o)=>ops.push(Object.assign({t:'rect',x,y,w,h,r:0},o));
+  const line=(x1,y1,x2,y2,col,lw)=>ops.push({t:'line',x1,y1,x2,y2,col,lw:lw||0.6});
+  const circle=(cx,cy,r,o)=>ops.push(Object.assign({t:'circle',cx,cy,r},o));
+  const poly=(pts,o)=>ops.push(Object.assign({t:'poly',pts},o));
+  const text=(s,x,y,o)=>{
+    o=o||{};const size=o.size||10,bold=!!o.bold;let w=fdW(s,bold,size),sc=1;
+    if(o.maxW&&w>o.maxW){sc=o.maxW/w;w=o.maxW;}
+    ops.push({t:'text',s:String(s),x:o.al==='r'?x-w:(o.al==='c'?x-w/2:x),y,size,bold,col:o.col||C.ink,w,sc});
+  };
+  const fit=(s,bold,max,min,maxW)=>{let z=max;while(z>min&&fdW(s,bold,z)>maxW)z-=0.5;return z;};
+  /* icônes sobres tracées à la main */
+  const icon=(name,cx,cy,s,col)=>{
+    const u=s/24,P=(x,y)=>[cx+(x-12)*u,cy+(y-12)*u],lw=1.5*u*1.0,st={stroke:col,lw:Math.max(0.8,lw)};
+    const L=(a,b,c,d)=>{const p=P(a,b),q=P(c,d);line(p[0],p[1],q[0],q[1],col,st.lw);};
+    if(name==='scale'){L(12,4,12,20);L(5,20,19,20);L(4,7,20,7);poly([P(4,7),P(1.5,14),P(6.5,14)],{stroke:col,lw:st.lw,close:1});poly([P(20,7),P(17.5,14),P(22.5,14)],{stroke:col,lw:st.lw,close:1});}
+    else if(name==='ingot'){poly([P(3,18),P(6,9),P(18,9),P(21,18)],{stroke:col,lw:st.lw,close:1});L(8,13.5,16,13.5);L(9,9,10,5);L(15,9,14,5);}
+    else if(name==='coins'){[7,12,17].forEach(y=>{const a=P(5,y-2.4),b=P(19,y+2.4);rect(a[0],a[1],b[0]-a[0],b[1]-a[1],{r:(b[1]-a[1])/2,stroke:col,lw:st.lw});});}
+    else if(name==='tag'){poly([P(3,12),P(12,3),P(21,3),P(21,12),P(12,21)],{stroke:col,lw:st.lw,close:1});const q=P(16.5,7.5);circle(q[0],q[1],1.4*u,{fill:col});}
+    else if(name==='doc'){poly([P(6,3),P(15,3),P(19,7),P(19,21),P(6,21)],{stroke:col,lw:st.lw,close:1});L(9,11,16,11);L(9,15,16,15);}
+    else if(name==='gem'){poly([P(7,4),P(17,4),P(22,10),P(12,21),P(2,10)],{stroke:col,lw:st.lw,close:1});L(2,10,22,10);L(7,4,9.5,10);L(17,4,14.5,10);L(9.5,10,12,21);L(14.5,10,12,21);}
+    else if(name==='star'){const pts=[];for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?4.8:10;pts.push(P(12+rr*Math.cos(a),12.5+rr*Math.sin(a)));}poly(pts,{stroke:col,lw:st.lw,close:1});}
+    else if(name==='up'){circle(cx,cy,10*u,{stroke:col,lw:st.lw});L(12,17,12,8);L(8,12,12,8);L(16,12,12,8);}
+    else if(name==='down'){circle(cx,cy,10*u,{stroke:col,lw:st.lw});L(12,7,12,16);L(8,12,12,16);L(16,12,12,16);}
+    else if(name==='flat'){circle(cx,cy,10*u,{stroke:col,lw:st.lw});L(7,12,17,12);}
+    else if(name==='calc'){const a=P(5,3),b=P(19,21);rect(a[0],a[1],b[0]-a[0],b[1]-a[1],{r:2.5*u,stroke:col,lw:st.lw});const d=P(8,7),e=P(16,10);rect(d[0],d[1],e[0]-d[0],e[1]-d[1],{r:u,stroke:col,lw:st.lw});[[9,14],[12,14],[15,14],[9,17.5],[12,17.5],[15,17.5]].forEach(q=>{const t=P(q[0],q[1]);circle(t[0],t[1],0.9*u,{fill:col});});}
+    else if(name==='gear'){circle(cx,cy,4*u,{stroke:col,lw:st.lw});for(let i=0;i<8;i++){const a=i*Math.PI/4;L(12+6.5*Math.cos(a),12+6.5*Math.sin(a),12+9.5*Math.cos(a),12+9.5*Math.sin(a));}circle(cx,cy,7*u,{stroke:col,lw:st.lw});}
+    else if(name==='bag'){circle(cx,cy+2*u,8*u,{stroke:col,lw:st.lw});L(9,4,15,4);L(10,4,12,8);L(14,4,12,8);L(12,10,12,17);}
+    else if(name==='info'){circle(cx,cy,10*u,{stroke:col,lw:st.lw});L(12,11,12,17);const q=P(12,7.6);circle(q[0],q[1],1.1*u,{fill:col});}
+    else if(name==='warn'){poly([P(12,3),P(22,20),P(2,20)],{stroke:col,lw:st.lw,close:1});L(12,9,12,14);const q=P(12,17);circle(q[0],q[1],1*u,{fill:col});}
+  };
+  /* ——— En-tête noir et or ——— */
+  rect(0,0,W,112,{fill:C.black});rect(0,112,W,3,{fill:C.gold});
+  rect(30,28,48,48,{r:11,fill:C.dark,stroke:'#2a2e3a',lw:0.8});rect(34,32,40,40,{r:9,fill:C.gold});rect(43,46,22,4.6,{r:2.3,fill:'#2a1c05'});rect(43,55,22,4.6,{r:2.3,fill:'#2a1c05'});
+  text('CALCULA',90,54,{size:24,bold:1,col:C.gold});text('Calculatrice tout-en-un',90,70,{size:9.5,col:C.champ});
+  line(213,26,213,88,'#4a4128',0.9);
+  text('BORDEREAU',228,50,{size:21,bold:1,col:C.champ});text('FONTE / LINGOT',228,74,{size:21,bold:1,col:C.gold});
+  text('Calcul métier • Or • Métaux précieux',228,93,{size:9.5,col:'#d9dce4'});
+  rect(423,26,144,64,{r:10,fill:C.dark,stroke:C.gold,lw:1});
+  text('N° '+m.number,495,47,{size:10.5,bold:1,col:'#ffffff',al:'c',maxW:128});
+  text('Date : '+m.date,437,67,{size:9.5,col:'#e8eaf0'});text('Heure : '+m.time,437,81,{size:9.5,col:'#e8eaf0'});
+  /* ——— Récapitulatif ——— */
+  const sy=124,r4=m.results;
+  rect(28,sy,539,82,{r:10,fill:C.ivory,stroke:C.gold,lw:0.9});
+  rect(40,sy+16,50,50,{r:9,fill:'#f2e2ae'});icon('ingot',65,sy+41,34,C.goldD);
+  text('RÉCAPITULATIF',104,sy+22,{size:11,bold:1,col:C.goldD});
+  (m.complete?['Valeur estimée du lingot après fonte et','résultat financier de l\'opération, calculés','d\'après les données saisies.']:['Données incomplètes : certains résultats ne','peuvent pas être calculés. Renseignez tous','les paramètres nécessaires.']).forEach((l,i)=>text(l,104,sy+38+i*12,{size:9,col:'#3b4254',maxW:240}));
+  line(354,sy+12,354,sy+70,C.line,0.8);
+  const kpi=(y0,label,x,unit,col)=>{
+    text(label,368,y0,{size:8.5,bold:1,col:C.grey});
+    if(x==null){text('Non calculé',368,y0+19,{size:12,col:C.grey});return;}
+    const z=fit(x,true,17,9,118);text(x,368,y0+19,{size:z,bold:1,col:col||C.ink,maxW:118});
+    text(unit,368+Math.min(fdW(x,true,z),118)+5,y0+19,{size:9.5,col:C.grey});
+  };
+  const bn=r4[3];
+  kpi(sy+20,'VALEUR DU LINGOT (ESTIMÉE)',r4[0].value,'GNF',C.ink);
+  kpi(sy+51,bn.state==='neg'?'PERTE NETTE':'BÉNÉFICE NET',bn.value,'GNF',bn.state==='pos'?C.green:(bn.state==='neg'?C.red:C.ink));
+  /* ——— Sections A et B ——— */
+  const section=(y,title,ic,rows)=>{
+    const rh=25,hh=24,h=hh+rows.length*rh;
+    rect(28,y,539,h,{r:8,fill:C.paper,stroke:C.line,lw:0.9});
+    rect(28,y,539,hh,{r:8,fill:C.dark});rect(28,y+12,539,12,{fill:C.dark});
+    circle(46,y+12,8.5,{fill:C.gold});icon(ic,46,y+12,12,'#2a1c05');
+    text(title,62,y+16,{size:10.5,bold:1,col:'#ffffff'});
+    line(300,y+hh,300,y+h-1,C.line,0.6);line(438,y+hh,438,y+h-1,C.line,0.6);
+    rows.forEach((x,i)=>{
+      const ry=y+hh+i*rh;if(i)line(36,ry,559,ry,C.line,0.6);
+      icon(x.icon,48,ry+rh/2,14,C.gold);
+      text(x.label,66,ry+rh/2+3.6,{size:10,col:C.ink,maxW:228});
+      if(x.value==null)text('Non renseigné'+(x.note?' ('+x.note+')':''),430,ry+rh/2+3.6,{size:9,col:C.grey,al:'r',maxW:128});
+      else{const z=fit(x.value,true,13,8,126);text(x.value,430,ry+rh/2+4.6,{size:z,bold:1,col:C.ink,al:'r',maxW:126});}
+      text(x.unit,448,ry+rh/2+3.6,{size:9.5,col:C.grey,maxW:112});
+    });
+    return y+h;
+  };
+  section(216,'A.  PARAMÈTRES DE FONTE ET VALEUR DU LINGOT','gear',m.A);
+  section(323,'B.  ACHAT INITIAL SUR LE TERRAIN ET FRAIS','bag',m.B);
+  /* ——— Résultats financiers (gauche) et autres indicateurs (droite) ——— */
+  const ry=432,rw=334,rh2=54,rhh=26;
+  rect(28,ry,rw,rhh+4*rh2,{r:8,fill:C.paper,stroke:C.line,lw:0.9});
+  rect(28,ry,rw,rhh,{r:8,fill:C.green});rect(28,ry+13,rw,13,{fill:C.green});
+  circle(46,ry+13,8.5,{fill:'#f4fbf6'});icon('calc',46,ry+13,12,C.green);
+  text('RÉSULTATS FINANCIERS',62,ry+17,{size:10.5,bold:1,col:'#ffffff'});
+  r4.forEach((x,i)=>{
+    const y0=ry+rhh+i*rh2;
+    if(x.key==='benefice'){const bg=x.state==='pos'?C.greenBg:(x.state==='neg'?C.redBg:C.neutralBg);rect(34,y0+3,rw-12,rh2-6,{r:7,fill:bg});}
+    else if(i)line(36,y0,28+rw-8,y0,C.line,0.6);
+    const ic=x.key==='benefice'?(x.state==='neg'?'down':(x.state==='zero'?'flat':'up')):x.icon;
+    const icol=x.key==='benefice'?(x.state==='pos'?C.green:(x.state==='neg'?C.red:C.grey)):C.gold;
+    icon(ic,48,y0+rh2/2,16,icol);
+    text(x.label,66,y0+19,{size:10,bold:1,col:C.ink,maxW:150});
+    if(x.value==null){
+      fdWrap(x.hint||'Données manquantes',false,8,148).slice(0,2).forEach((l,k)=>text(l,66,y0+31+k*10,{size:8,col:C.red,maxW:148}));
+      text('—',28+rw-14,y0+31,{size:15,bold:1,col:C.grey,al:'r'});
+    }else{
+      text(x.formula,66,y0+33,{size:8,col:C.grey,maxW:150});
+      const col=x.key==='benefice'?(x.state==='pos'?C.green:(x.state==='neg'?C.red:C.ink)):C.ink;
+      const z=fit(x.value,true,x.key==='benefice'?17:15,8,112);
+      text(x.unit,28+rw-14,y0+18,{size:8.5,col:C.grey,al:'r'});
+      text(x.value,28+rw-14,y0+36,{size:z,bold:1,col,al:'r',maxW:112});
+    }
+  });
+  const ox=372,ow=195,o=m.others;
+  rect(ox,ry,ow,rhh+4*rh2,{r:8,fill:C.ivory,stroke:C.gold,lw:0.9});
+  text('AUTRES INDICATEURS',ox+14,ry+17,{size:10.5,bold:1,col:C.goldD});line(ox+10,ry+rhh,ox+ow-10,ry+rhh,C.gold,0.7);
+  const blk=(y0,x,ic)=>{
+    icon(ic,ox+22,y0+11,14,x.neg?C.red:C.gold);text(x.label,ox+38,y0+14,{size:9.5,bold:1,col:C.ink,maxW:ow-48});
+    if(x.value==null){text('—',ox+ow-12,y0+34,{size:13,bold:1,col:C.grey,al:'r'});return;}
+    const z=fit(x.value,true,14,8,ow-62-20);
+    text(x.sub||'',ox+14,y0+34,{size:8.5,col:x.neg?C.red:C.grey,maxW:90});
+    text(x.unit,ox+ow-12,y0+34,{size:9.5,col:C.grey,al:'r'});
+    text(x.value,ox+ow-12-fdW(x.unit,false,9.5)-4,y0+34,{size:z,bold:1,col:x.neg?C.red:C.ink,al:'r',maxW:ow-62-20});
+  };
+  blk(ry+rhh+4,o.perte,'scale');
+  if(o.perte.value!=null&&o.perte.sub)o.perte.sub=o.perte.sub;
+  blk(ry+rhh+4+40,o.orFin,'gem');blk(ry+rhh+4+80,o.purete,'star');
+  let ny=ry+rhh+4+124;
+  m.warnings.forEach(w=>{const ls=fdWrap(w,false,8,ow-40).slice(0,4);const h=ls.length*10+10;rect(ox+8,ny,ow-16,h,{r:6,fill:C.redBg,stroke:C.red,lw:0.7});icon('warn',ox+19,ny+h/2,11,C.red);ls.forEach((l,i)=>text(l,ox+30,ny+13+i*10,{size:8,col:C.red,maxW:ow-42}));ny+=h+4;});
+  {const ls=fdWrap(m.purityNote,false,8,ow-40);const h=Math.max(30,ls.length*10+10);rect(ox+8,ny,ow-16,h,{r:6,fill:'#f6ecd0'});icon('info',ox+19,ny+h/2,11,C.goldD);ls.forEach((l,i)=>text(l,ox+30,ny+13+i*10,{size:8,col:'#5d4a14',maxW:ow-42}));}
+  /* ——— Formules ——— */
+  const fy=ry+rhh+4*rh2+10;
+  rect(28,fy,539,78,{r:8,fill:C.paper,stroke:C.gold,lw:0.9});
+  text('FORMULES UTILISÉES',42,fy+16,{size:9,bold:1,col:C.goldD});
+  m.formulas.forEach((f,i)=>{const col=Math.floor(i/4),rr=i%4;const idx=f.indexOf(' = ');
+    const x0=42+col*268,y0=fy+32+rr*12;
+    text(f.slice(0,idx),x0,y0,{size:8.5,bold:1,col:C.ink,maxW:120});
+    const lw=Math.min(fdW(f.slice(0,idx),true,8.5),120);
+    text('=  '+f.slice(idx+3),x0+lw+4,y0,{size:8.5,col:'#3b4254',maxW:246-lw-4});});
+  line(305,fy+24,305,fy+70,C.line,0.6);
+  /* ——— Avertissement et pied de page ——— */
+  fdWrap(m.disclaimer,false,8,539).forEach((l,i)=>text(l,28,fy+78+13+i*10,{size:8,col:C.grey,maxW:539}));
+  rect(0,796,W,46,{fill:C.black});rect(0,796,W,2.5,{fill:C.gold});
+  text('CALCULA',32,824,{size:14,bold:1,col:C.gold});line(104,808,104,830,'#4a4128',0.8);
+  text('Outil de calcul métier indépendant',116,822,{size:9.5,col:'#e8eaf0'});
+  text('Fonctionne hors ligne',563,816,{size:9,col:C.champ,al:'r'});
+  text('Généré le '+m.date+' à '+m.time+' · Page 1/1',563,829,{size:8.5,col:'#b9bdc8',al:'r'});
+  return {W,H,ops};
+}
+const fdRGB=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255].map(v=>+v.toFixed(3));
+const FD_WIN={'•':0x95,'–':0x96,'—':0x97,'’':0x92,'…':0x85,'€':0x80,'‘':0x91,'“':0x93,'”':0x94};
+function fdWin(s){let o='';for(const ch of s){let c=FD_WIN[ch]!==undefined?FD_WIN[ch]:ch.charCodeAt(0);if(c>255)c=63;o+=String.fromCharCode(c);}return o.replace(/[\\()]/g,'\\$&');}
+function flToPdfBytes(page){
+  const H=page.H,K=0.5523;let c='';
+  const col=(h,k)=>fdRGB(h).join(' ')+' '+k+'\n';
+  const pt=(x,y)=>(+x.toFixed(2))+' '+(+(H-y).toFixed(2));
+  const rr=(x,y,w,h,r)=>{r=Math.min(r,w/2,h/2);if(r<=0)return pt(x,y)+' m '+pt(x+w,y)+' l '+pt(x+w,y+h)+' l '+pt(x,y+h)+' l h\n';
+    const k=r*K;return [pt(x+r,y)+' m',pt(x+w-r,y)+' l',pt(x+w-r+k,y)+' '+pt(x+w,y+r-k)+' '+pt(x+w,y+r)+' c',pt(x+w,y+h-r)+' l',pt(x+w,y+h-r+k)+' '+pt(x+w-r+k,y+h)+' '+pt(x+w-r,y+h)+' c',
+      pt(x+r,y+h)+' l',pt(x+r-k,y+h)+' '+pt(x,y+h-r+k)+' '+pt(x,y+h-r)+' c',pt(x,y+r)+' l',pt(x,y+r-k)+' '+pt(x+r-k,y)+' '+pt(x+r,y)+' c h'].join('\n')+'\n';};
+  page.ops.forEach(o=>{
+    if(o.t==='rect'||o.t==='circle'||o.t==='poly'){
+      let path='';
+      if(o.t==='rect')path=rr(o.x,o.y,o.w,o.h,o.r||0);
+      else if(o.t==='circle'){const k=o.r*K,x=o.cx,y=o.cy,r=o.r;path=[pt(x+r,y)+' m',pt(x+r,y+k)+' '+pt(x+k,y+r)+' '+pt(x,y+r)+' c',pt(x-k,y+r)+' '+pt(x-r,y+k)+' '+pt(x-r,y)+' c',pt(x-r,y-k)+' '+pt(x-k,y-r)+' '+pt(x,y-r)+' c',pt(x+k,y-r)+' '+pt(x+r,y-k)+' '+pt(x+r,y)+' c h'].join('\n')+'\n';}
+      else path=o.pts.map((p,i)=>pt(p[0],p[1])+(i?' l':' m')).join('\n')+(o.close?'\nh':'')+'\n';
+      c+='q\n';let paint=[];
+      if(o.fill){c+=col(o.fill,'rg');paint.push('f');}
+      if(o.stroke){c+=col(o.stroke,'RG')+(o.lw||0.8)+' w 1 J 1 j\n';paint.push('S');}
+      c+=path+(paint.length===2?'B':(paint[0]||'n'))+'\nQ\n';
+    }else if(o.t==='line'){c+='q\n'+col(o.col,'RG')+o.lw+' w 1 J\n'+pt(o.x1,o.y1)+' m '+pt(o.x2,o.y2)+' l S\nQ\n';}
+    else if(o.t==='text'&&o.s){c+='BT\n/'+(o.bold?'F2':'F1')+' '+o.size+' Tf\n'+col(o.col,'rg')+(o.sc<1?(o.sc*100).toFixed(2)+' Tz\n':'')+'1 0 0 1 '+pt(o.x,o.y)+' Tm\n('+fdWin(o.s)+') Tj\nET\n';}
+  });
+  const objs=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+page.W+' '+page.H+'] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    '<< /Length '+c.length+' >>\nstream\n'+c+'endstream'];
+  let pdf='%PDF-1.4\n',offs=[];
+  objs.forEach((ob,i)=>{offs.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+ob+'\nendobj\n';});
+  const xr=pdf.length;
+  pdf+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+offs.map(x=>String(x).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF';
+  const b=new Uint8Array(pdf.length);for(let i=0;i<pdf.length;i++)b[i]=pdf.charCodeAt(i)&255;return b;
+}
+/*FD-END*/
+
+/* — image HD (PNG 1654×2339, même mise en page que le PDF, dessinée sur un canvas) — */
+async function flImage(m){
+  try{if(document.fonts&&document.fonts.load){await document.fonts.load('700 20px Helvetica');}}catch(e){}
+  const pg=flBuildOps(m),S=1654/pg.W,cv=document.createElement('canvas');cv.width=Math.round(pg.W*S);cv.height=Math.round(pg.H*S);
+  const c=cv.getContext('2d');c.scale(S,S);c.fillStyle='#fffdf8';c.fillRect(0,0,pg.W,pg.H);
+  const rr=(x,y,w,h,r)=>{r=Math.min(r||0,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
+  const paint=o=>{if(o.fill){c.fillStyle=o.fill;c.fill();}if(o.stroke){c.strokeStyle=o.stroke;c.lineWidth=o.lw||0.8;c.lineJoin='round';c.stroke();}};
+  pg.ops.forEach(o=>{
+    if(o.t==='rect'){rr(o.x,o.y,o.w,o.h,o.r);paint(o);}
+    else if(o.t==='circle'){c.beginPath();c.arc(o.cx,o.cy,o.r,0,Math.PI*2);paint(o);}
+    else if(o.t==='poly'){c.beginPath();o.pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));if(o.close)c.closePath();paint(o);}
+    else if(o.t==='line'){c.beginPath();c.moveTo(o.x1,o.y1);c.lineTo(o.x2,o.y2);c.strokeStyle=o.col;c.lineWidth=o.lw;c.lineCap='round';c.stroke();}
+    else if(o.t==='text'&&o.s){
+      c.font=(o.bold?'700 ':'400 ')+o.size+'px Helvetica, Arial, sans-serif';c.fillStyle=o.col;c.textBaseline='alphabetic';
+      const w=c.measureText(o.s).width,k=w>o.w?o.w/w:1;
+      c.save();c.translate(o.x,o.y);c.scale(k,1);c.fillText(o.s,0,0);c.restore();
+    }
   });
   return new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
 }
-/* — PDF (une page, texte, polices standard Helvetica : aucune bibliothèque) — */
-function flPdf(text){
-  const enc=s=>{let o='';for(const ch of s){let c=ch.charCodeAt(0);
-    const m={'→':'->','−':'-','⚠':'!','≈':'~','’':"'",'«':'"','»':'"','…':'...','–':'-','—':'-',' ':' ',' ':' '};
-    if(m[ch]!==undefined){o+=m[ch];continue;}
-    if(c>255)c=63;o+=String.fromCharCode(c);}return o.replace(/[\\()]/g,'\\$&');};
-  const MAXC=88,out=[];
-  text.split('\n').forEach(raw=>{
-    if(raw==='')return out.push('');
-    const ind=raw.match(/^\s*/)[0];let cur='';
-    raw.slice(ind.length).split(' ').forEach(w=>{const t=cur?cur+' '+w:ind+w;if(t.length>MAXC&&cur){out.push(cur);cur=ind+w;}else cur=t;});out.push(cur);
-  });
-  let content='0.91 0.77 0.42 rg 0 782 595 60 re f\n';
-  let y=806;
-  out.forEach((l,i)=>{
-    const head=i>0&&/^[A-ZÉ][A-ZÉ \/]{5,}$/.test(l),sub=/^\s{2}/.test(l),title=i===0;
-    if(i===0){content+='BT /F2 16 Tf 0.16 0.11 0.02 rg 40 '+y+' Td ('+enc(l)+') Tj ET\n';y=750;return;}
-    const f=head?'/F2 11':'/F1 '+(sub?'9':'11'),col=head?'0.6 0.42 0.07':(sub?'0.42 0.45 0.53':(l.startsWith('⚠')?'0.77 0.24 0.24':'0.08 0.1 0.15'));
-    content+='BT '+f+' Tf '+col+' rg 40 '+y+' Td ('+enc(l)+') Tj ET\n';y-=(l===''?9:15);
-  });
-  const objs=[];
-  objs.push('<< /Type /Catalog /Pages 2 0 R >>');
-  objs.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>');
-  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
-  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
-  objs.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');
-  let pdf='%PDF-1.4\n',offs=[];
-  objs.forEach((o,i)=>{offs.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});
-  const xr=pdf.length;
-  pdf+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+offs.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF';
-  const bytes=new Uint8Array(pdf.length);for(let i=0;i<pdf.length;i++)bytes[i]=pdf.charCodeAt(i)&255;
-  return new Blob([bytes],{type:'application/pdf'});
+const flPdf=m=>new Blob([flToPdfBytes(flBuildOps(m))],{type:'application/pdf'});
+/* numéro de document local : AAAAMMJJ-NNN (compteur du jour), réutilisé tant que la saisie ne change pas */
+function flDocNumber(inp,now){
+  const d=now.getFullYear()+fdPad(now.getMonth()+1)+fdPad(now.getDate()),sig=JSON.stringify(inp);
+  let s=store.get('calc.fonte.num',null);if(!s||typeof s!=='object')s={d:'',n:0,sig:''};
+  if(s.d!==d){s={d:d,n:0,sig:''};}
+  if(s.sig!==sig||s.n===0){s={d:d,n:s.n+1,sig:sig};store.set('calc.fonte.num',s);}
+  return d+'-'+String(s.n).padStart(3,'0');
 }
 /* — remise du fichier : partage natif (APK), partage du navigateur, sinon téléchargement — */
 function blobB64(b){return new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=ko;r.readAsDataURL(b);});}
@@ -1199,11 +1410,14 @@ async function deliverFile(blob,name,mime){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);toast(L('Fichier préparé : voir vos téléchargements','File ready: see your downloads'));
 }
+let flSession=null; /* saisie de la session en cours (mémoire vive) : une nouvelle ouverture de l'application démarre vide */
 function renderFonte(box){
-  const saved=store.get('calc.fonte',{});const inp={pf:'',tit:'',p22:'',pb:'',pt:'',fr:''};
-  Object.keys(inp).forEach(k=>{if(saved&&typeof saved[k]==='string')inp[k]=saved[k];});
-  box.innerHTML='<p class="sub" style="margin:0 0 8px">Valeur d\'un lingot après fonte, coût d\'achat, bénéfice et perte au feu. Le prix de référence 22K se saisit à la main : aucune cotation en direct, tout fonctionne hors ligne.</p><div class="fields" id="fl-f"></div><div class="outs" id="fl-o" style="margin-top:10px"></div><div id="fl-w"></div><p class="note" id="fl-n"></p><div class="btnrow" style="margin-top:10px"><button class="btn sm" id="fl-copy">Bordereau</button><button class="btn alt sm" id="fl-img">Image HD</button><button class="btn alt sm" id="fl-pdf">PDF</button><button class="btn alt sm btn danger" id="fl-clr">Effacer</button></div>';
-  const fb=box.querySelector('#fl-f'),ob=box.querySelector('#fl-o'),wb=box.querySelector('#fl-w'),els={};
+  const EX={pf:'85,5',tit:'23,1',p22:'1 200 000',pb:'88,25',pt:'1 180 000',fr:'1 200 000'};
+  const inp={pf:'',tit:'',p22:'',pb:'',pt:'',fr:''};
+  if(flSession)Object.keys(inp).forEach(k=>{if(typeof flSession[k]==='string')inp[k]=flSession[k];});
+  const savedOp=()=>{const s=store.get('calc.fonte',null);if(!s||typeof s!=='object')return null;const o={};let any=false;Object.keys(inp).forEach(k=>{o[k]=typeof s[k]==='string'?s[k]:'';if(o[k].trim())any=true;});return any?o:null;};
+  box.innerHTML='<p class="sub" style="margin:0 0 8px">Valeur d\'un lingot après fonte, coût d\'achat, bénéfice et perte au feu. Le prix de référence 22K se saisit à la main : aucune cotation en direct, tout fonctionne hors ligne.</p><div id="fl-r"></div><div class="fields" id="fl-f"></div><div class="outs" id="fl-o" style="margin-top:10px"></div><div id="fl-w"></div><p class="note" id="fl-n"></p><div class="btnrow" style="margin-top:10px"><button class="btn sm" id="fl-copy">Bordereau</button><button class="btn alt sm" id="fl-img">Image HD</button><button class="btn alt sm" id="fl-pdf">PDF</button><button class="btn alt sm btn danger" id="fl-clr">Effacer</button></div>';
+  const fb=box.querySelector('#fl-f'),ob=box.querySelector('#fl-o'),wb=box.querySelector('#fl-w'),rb=box.querySelector('#fl-r'),els={};
   FL_FIELDS.forEach(f=>{
     const d=document.createElement('div');d.className='field full';
     d.innerHTML='<label class="lbl" for="fl-'+f.k+'">'+f.l+'</label>';
@@ -1212,26 +1426,36 @@ function renderFonte(box){
         b.addEventListener('click',()=>{buzz();els[f.k].value=v.replace('.',',');upd();});q.appendChild(b);});
       d.appendChild(q);}
     const w=document.createElement('div');w.className='wrap';const el=document.createElement('input');el.className='in';el.id='fl-'+f.k;el.inputMode='decimal';el.autocomplete='off';
-    el.placeholder=f.k==='fr'?L('0 (facultatif)','0 (optional)'):'';el.value=inp[f.k];el.style.paddingRight=(f.s.length*9+22)+'px';
+    el.placeholder=L('Ex. : ','e.g. ')+EX[f.k]+(f.k==='fr'?L(' (facultatif)',' (optional)'):'');el.value=inp[f.k];el.style.paddingRight=(f.s.length*9+22)+'px';
     w.innerHTML='<span class="suf">'+f.s+'</span>';w.prepend(el);d.appendChild(w);
     const e=document.createElement('div');e.className='note';e.style.cssText='color:var(--danger);margin:0';e.id='fl-e-'+f.k;d.appendChild(e);
     el.addEventListener('input',upd);el.addEventListener('change',upd);els[f.k]=el;fb.appendChild(d);
   });
   const ERR={invalid:L('Valeur invalide : saisissez un nombre.','Invalid value: enter a number.'),negative:L('Une valeur négative n\'est pas acceptée.','A negative value is not accepted.'),range:L('Le titrage doit être supérieur à 0 et au plus 24 K.','Fineness must be above 0 and at most 24 K.')};
   const NAME={pf:L('le poids après fonte','the weight after melting'),tit:L('le titrage','the fineness'),p22:L('le prix 22K','the 22K price'),pb:L('le poids brut','the gross weight'),pt:L('le prix terrain','the field price'),valeur:L('la valeur du lingot','the ingot value'),cout:L('le coût terrain','the field cost'),frais:L('des frais valides','valid costs')};
-  let last=null;
+  const isEmpty=()=>Object.keys(inp).every(k=>!inp[k].trim());
+  function resume(){
+    rb.innerHTML='';const s=isEmpty()?savedOp():null;if(!s)return;
+    const b=document.createElement('button');b.type='button';b.className='btn alt sm';b.style.margin='0 0 8px';b.textContent=L('Reprendre la dernière opération','Resume the last operation');
+    b.addEventListener('click',()=>{Object.keys(els).forEach(k=>els[k].value=s[k]);upd();});rb.appendChild(b);
+  }
   function upd(){
-    Object.keys(inp).forEach(k=>inp[k]=els[k].value);store.set('calc.fonte',inp);
-    const res=fonteLingot(inp);last=res;const r=res.r;
+    Object.keys(inp).forEach(k=>inp[k]=els[k].value);flSession=Object.assign({},inp);
+    if(!isEmpty())store.set('calc.fonte',Object.assign({},inp,{t:Date.now()}));
+    resume();
+    const res=fonteLingot(inp);const r=res.r;
     FL_FIELDS.forEach(f=>{box.querySelector('#fl-e-'+f.k).textContent=res.err[f.k]?ERR[res.err[f.k]]:'';});
-    ob.innerHTML='';
-    const add=(label,val,miss,cls,formula)=>{
+    ob.innerHTML='';wb.innerHTML='';
+    if(!Object.keys(r).length){
+      const d=document.createElement('div');d.className='note';d.style.margin='8px 0';d.textContent=L('Renseignez les paramètres pour calculer les résultats.','Fill in the parameters to compute the results.');ob.appendChild(d);
+      box.querySelector('#fl-n').textContent='';return;
+    }
+    const add=(label,val,miss,cls)=>{
       const d=document.createElement('div');d.className='out'+(cls&&cls.main?' main':'');
       d.innerHTML='<span class="n"></span><span class="v"></span>';d.querySelector('.n').textContent=label;
       const v=d.querySelector('.v');v.textContent=val!=null?val:'—';
       if(cls&&cls.neg)v.style.color='var(--danger)';
-      if(val==null&&miss&&miss.length){const h=document.createElement('div');h.className='note';h.style.margin='2px 0 0';h.textContent=L('À renseigner : ','To fill in: ')+miss.map(x=>NAME[x]||x).join(', ');const wrap=document.createElement('div');wrap.style.cssText='width:100%';
-        d.style.flexWrap='wrap';d.appendChild(h);}
+      if(val==null&&miss&&miss.length){const h=document.createElement('div');h.className='note';h.style.margin='2px 0 0';h.textContent=L('À renseigner : ','To fill in: ')+miss.map(x=>NAME[x]||x).join(', ');d.style.flexWrap='wrap';d.appendChild(h);}
       ob.appendChild(d);
     };
     add(L('Valeur du lingot','Ingot value'),r.valeur!==undefined?flGNF(r.valeur):null,res.need.valeur,{main:1});
@@ -1241,14 +1465,13 @@ function renderFonte(box){
     add(L('Perte au feu','Loss on melting'),r.perte!==undefined?flG(r.perte)+(r.pertePct!==undefined?' · '+flPct(r.pertePct):''):null,res.need.perte,{neg:r.perte<0});
     add(L('Or fin estimé (théorique)','Estimated fine gold (theoretical)'),r.orFin!==undefined?flG(r.orFin):null,res.need.orFin);
     add(L('Pureté théorique','Theoretical purity'),r.purete!==undefined?flPct(r.purete):null,res.need.purete);
-    wb.innerHTML='';
     res.warn.forEach(w=>{if(w==='perteNegative'){const d=document.createElement('div');d.className='note';d.style.cssText='color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:8px 10px;margin-top:8px';d.textContent=L('⚠ Perte au feu négative : le poids après fonte dépasse le poids brut. Vérifiez la saisie ou la différence de mesure.','⚠ Negative loss: the weight after melting exceeds the gross weight. Check the entry or the measurement difference.');wb.appendChild(d);}});
     box.querySelector('#fl-n').textContent=(r.benefice!==undefined&&res.fraisParDefaut?L('Frais non renseignés : comptés pour 0. ','Costs left empty: counted as 0. '):'')+L('La pureté est théorique (calculée à partir du titrage saisi), pas une mesure de laboratoire. Le prix 22K est celui que vous saisissez.','Purity is theoretical (computed from the entered fineness), not a laboratory measurement. The 22K price is the one you enter.');
   }
-  const need=()=>{const res=fonteLingot(inp);if(!Object.keys(res.r).length){toast(L('Renseignez d\'abord quelques champs valides','Fill in some valid fields first'));return null;}return res;};
-  box.querySelector('#fl-copy').addEventListener('click',()=>{const res=need();if(!res)return;openPick(L('Bordereau Fonte / Lingot','Melt / Ingot slip'),shareItems(flText(inp,res),L('Bordereau','Slip')));});
-  box.querySelector('#fl-img').addEventListener('click',async()=>{const res=need();if(!res)return;toast(L('Création de l\'image…','Creating image…'));try{const b=await flImage(flText(inp,res));await deliverFile(b,'bordereau-fonte-lingot.png','image/png');}catch(e){toast(L('Création de l\'image impossible','Could not create the image'));}});
-  box.querySelector('#fl-pdf').addEventListener('click',async()=>{const res=need();if(!res)return;try{await deliverFile(flPdf(flText(inp,res)),'bordereau-fonte-lingot.pdf','application/pdf');}catch(e){toast(L('Création du PDF impossible','Could not create the PDF'));}});
+  const doc=()=>{const res=fonteLingot(inp);if(!Object.keys(res.r).length){toast(L('Renseignez d\'abord quelques champs valides','Fill in some valid fields first'));return null;}return flDocModel(inp,res,{number:flDocNumber(inp,new Date())});};
+  box.querySelector('#fl-copy').addEventListener('click',()=>{const m=doc();if(!m)return;openPick(L('Bordereau Fonte / Lingot','Melt / Ingot slip'),shareItems(flToText(m),L('Bordereau','Slip')));});
+  box.querySelector('#fl-img').addEventListener('click',async()=>{const m=doc();if(!m)return;toast(L('Création de l\'image…','Creating image…'));try{const b=await flImage(m);await deliverFile(b,'bordereau-fonte-lingot.png','image/png');}catch(e){toast(L('Création de l\'image impossible','Could not create the image'));}});
+  box.querySelector('#fl-pdf').addEventListener('click',async()=>{const m=doc();if(!m)return;try{await deliverFile(flPdf(m),'bordereau-fonte-lingot.pdf','application/pdf');}catch(e){toast(L('Création du PDF impossible','Could not create the PDF'));}});
   box.querySelector('#fl-clr').addEventListener('click',()=>{if(!confirm(T('Effacer tous les champs ?')))return;Object.keys(els).forEach(k=>els[k].value='');upd();});
   upd();
 }
