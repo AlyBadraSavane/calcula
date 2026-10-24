@@ -7,7 +7,7 @@ name: Android APK
 # Aucun déploiement en production, aucun service payant.
 on:
   push:
-    branches: [android]
+    branches: [android, 'feature/**']
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Tests unitaires des formules (Fonte / Lingot)
+        run: node --test tests/*.test.mjs
 
       - name: Contrôler le mot de passe de la clé de signature
         env:
@@ -89,6 +92,11 @@ jobs:
           grep -E "^package:|application-label:|launchable-activity|sdkVersion|targetSdkVersion" badging.txt
           grep "name='com.alybadra.calcula'" badging.txt >/dev/null
           grep "targetSdkVersion:'36'" badging.txt >/dev/null
+          echo "== Plugins de partage de fichiers"
+          unzip -p "$APK" assets/capacitor.plugins.json > plugins.json
+          cat plugins.json
+          grep "Filesystem" plugins.json >/dev/null
+          grep "Share" plugins.json >/dev/null
           echo "== Widget"
           "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml > mani.txt
           grep "CalculaWidget" mani.txt >/dev/null
