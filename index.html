@@ -1491,7 +1491,7 @@ let ticket=store.get('calc.ticket',[]);if(!Array.isArray(ticket))ticket=[];
 function renderTicket(box){
   const money=n=>fmtCalc(n);
   box.innerHTML='<p class="sub" style="margin:0 0 6px">Additionnez des articles (nom, quantité, prix) et gardez le total dans une note.</p>'
-   +'<div class="tk-row"><input class="in" id="tk-n" placeholder="Article" maxlength="40"><input class="in" id="tk-q" inputmode="decimal" placeholder="Qté" value="1"><input class="in" id="tk-p" inputmode="decimal" placeholder="Prix"></div>'
+   +'<div class="tk-row"><input class="in" id="tk-n" placeholder="Article" maxlength="40"><input class="in" id="tk-q" inputmode="decimal" placeholder="Ex. : 1" aria-label="Quantité"><input class="in" id="tk-p" inputmode="decimal" placeholder="Prix"></div>'
    +'<button class="btn" id="tk-add" style="margin:8px 0">Ajouter la ligne</button><div id="tk-list"></div><div class="tk-total"><span>Total</span><span id="tk-tot"></span></div>'
    +'<div class="btnrow" style="margin-top:10px"><button class="btn alt sm" id="tk-note">Enregistrer dans une note</button><button class="btn alt sm" id="tk-share">Partager</button><button class="btn alt sm btn danger" id="tk-clr">Vider</button></div>';
   const list=box.querySelector('#tk-list'),tot=box.querySelector('#tk-tot');
@@ -1508,7 +1508,7 @@ function renderTicket(box){
     const q=parse(box.querySelector('#tk-q').value),pr=parse(box.querySelector('#tk-p').value);
     if(pr==null||q==null||q<=0){toast('Saisissez une quantité et un prix');return;}
     ticket.push({n:box.querySelector('#tk-n').value.trim(),q,p:pr});draw();buzz();
-    box.querySelector('#tk-n').value='';box.querySelector('#tk-p').value='';box.querySelector('#tk-q').value='1';box.querySelector('#tk-n').focus();
+    box.querySelector('#tk-n').value='';box.querySelector('#tk-p').value='';box.querySelector('#tk-q').value='';box.querySelector('#tk-n').focus();
   });
   box.querySelector('#tk-clr').addEventListener('click',()=>{if(ticket.length&&!confirm(T('Vider le ticket ?')))return;ticket=[];draw();});
   box.querySelector('#tk-note').addEventListener('click',()=>{
@@ -1606,14 +1606,14 @@ function Converter(root,getCfg,opts){
   const mono=u=>opts.code?u.id.toUpperCase():u.sym;
   const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   function mount(cfg){
-    st={cfg,from:cfg.from,to:cfg.to,val:cfg.val};
+    st={cfg,from:cfg.from,to:cfg.to,val:cfg.ph!=null?(cfg.val||''):''};
     const rid=root.id;
     root.innerHTML='<div class="card"><span class="lbl">De</span><div class="row"><input class="big" id="'+rid+'-in" inputmode="decimal" autocomplete="off" aria-label="Valeur à convertir"><button type="button" class="pick" id="'+rid+'-from" aria-label="Choisir l\'unité de départ"></button></div></div>'
      +'<button class="swap" aria-label="Inverser"><svg viewBox="0 0 24 24"><path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/></svg></button>'
      +'<div class="card"><span class="lbl">Vers</span><div class="row"><div class="big" id="'+rid+'-out" aria-live="polite"></div><button type="button" class="pick" id="'+rid+'-to" aria-label="Choisir l\'unité d\'arrivée"></button></div></div>'
      +'<div class="lbl sec">'+(opts.code?'Toutes les devises':'Toutes les unités')+'</div><div class="list"></div>';
     const inp=root.querySelector('input'),bf=root.querySelector('#'+rid+'-from'),bt=root.querySelector('#'+rid+'-to'),out=root.querySelector('#'+rid+'-out'),list=root.querySelector('.list');
-    inp.value=st.val;
+    inp.value=st.val;inp.placeholder=L('Ex. : ','e.g. ')+(cfg.ph!=null?cfg.ph:cfg.val);
     const U=id=>cfg.units.find(x=>x.id===id);
     const paint=(b,u)=>{b.innerHTML='<span class="mono"></span><span class="pn"></span>'+CHEV;b.querySelector('.mono').textContent=mono(u);b.querySelector('.pn').textContent=u.name;};
     const choose=(which,title)=>()=>Picker.open({title,search:cfg.units.length>6,value:st[which],
@@ -1673,7 +1673,7 @@ let rates={};
 function recompute(){rates=Object.assign({},DEF_RATES,(auto&&auto.d)||{},manual);}
 recompute();
 function curCfg(){
-  return{from:'USD',to:'GNF',val:'100',units:Object.keys(DEF_RATES).map(c=>({id:c,name:NAMES[c],sym:SYMS[c],to:x=>x/rates[c],from:b=>b*rates[c]}))};
+  return{from:'USD',to:'GNF',ph:'100',val:'',units:Object.keys(DEF_RATES).map(c=>({id:c,name:NAMES[c],sym:SYMS[c],to:x=>x/rates[c],from:b=>b*rates[c]}))};
 }
 const curRoot=$('#cur');curRoot.id='cur-conv';
 let curState=null;
@@ -1841,7 +1841,7 @@ function setTool(id){
     d.innerHTML='<label class="lbl" for="'+id+'">'+f.l+'</label>';
     let el;
     if(f.sel){el=document.createElement('div');el.className='seg full';el.dataset.v=f.v;f.sel.forEach(([v,n])=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.setAttribute('aria-pressed',String(v===f.v));b.addEventListener('click',()=>{el.dataset.v=v;[...el.children].forEach(c=>c.setAttribute('aria-pressed',String(c===b)));calc();});el.appendChild(b);});d.appendChild(el);}
-    else{const w=document.createElement('div');w.className='wrap';el=document.createElement('input');el.className='in';el.inputMode='decimal';el.value=f.v;if(f.s){el.style.paddingRight=(f.s.length*9+22)+'px';w.innerHTML='<span class="suf">'+f.s+'</span>';}w.prepend(el);d.appendChild(w);}
+    else{const w=document.createElement('div');w.className='wrap';el=document.createElement('input');el.className='in';el.inputMode='decimal';el.placeholder=L('Ex. : ','e.g. ')+String(f.v).replace(/\B(?=(\d{3})+(?!\d))/g,' ');if(f.s){el.style.paddingRight=(f.s.length*9+22)+'px';w.innerHTML='<span class="suf">'+f.s+'</span>';}w.prepend(el);d.appendChild(w);}
     el.id=id;el.addEventListener('input',calc);el.addEventListener('change',calc);els[f.k]=[el,f];fb.appendChild(d);
   });
   function calc(){
