@@ -55,3 +55,9 @@ test('mêmes résultats qu\'avant la refonte (valeurs de référence)',()=>{
   const r=J(A.fonteLingot(full).r);
   assert.ok(Math.abs(r.valeur-85.5*23.1*1200000/22)<1e-6);assert.ok(Math.abs(r.cout-88.25*1180000)<1e-6);
 });
+test('image HD : cible 2480×3508, repli 1654×2341, redessinée à l\'échelle (pas d\'agrandissement)',()=>{
+  const i=html.indexOf('const FL_PNG_SIZES'),src=html.slice(i,html.indexOf('const flPdf=',i));
+  assert.match(src,/FL_PNG_SIZES=\[\[2480,3508\],\[1654,2341\]\]/);
+  assert.ok(src.includes('c.setTransform(sx,0,0,sy,0,0)'));assert.ok(!/drawImage/.test(src));
+  assert.ok(/for\(const \[PW,PH\] of FL_PNG_SIZES\)\{try\{/.test(src),'repli par boucle try/catch');
+});
