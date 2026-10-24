@@ -1044,6 +1044,215 @@ function renderSettings(box){
   bk.querySelector('#bk-pick').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>restoreData(String(r.result||''));r.readAsText(f);});
 }
 
+/*FL-START — calcul « Fonte / Lingot » (fonction pure : aucune dépendance à l'interface, testée par tests/fonte-lingot.test.mjs) */
+function flParse(v){
+  if(v==null)return{empty:true};
+  let t=String(v).trim().replace(/[\s  ]/g,'');
+  if(t==='')return{empty:true};
+  if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t))t=t.replace(/,/g,'');            // 1,200,000 ou 1,200,000.5
+  else if(/^\d{1,3}(\.\d{3}){2,}(,\d+)?$/.test(t))t=t.replace(/\./g,'');     // 1.200.000 ou 1.200.000,5
+  if(!/^[+-]?(\d+([.,]\d*)?|[.,]\d+)$/.test(t))return{err:'invalid'};
+  const n=parseFloat(t.replace(',','.'));
+  if(!isFinite(n))return{err:'invalid'};
+  if(n<0)return{err:'negative'};
+  return{v:n};
+}
+function fonteLingot(i){
+  const KEYS=['pf','tit','p22','pb','pt','fr'];
+  const p={},err={};
+  KEYS.forEach(k=>{const r=flParse(i&&i[k]);if(r.err)err[k]=r.err;p[k]=(r.empty||r.err)?null:r.v;});
+  if(p.tit!=null&&(p.tit<=0||p.tit>24)){err.tit='range';p.tit=null;}
+  const has=(...ks)=>ks.every(k=>p[k]!=null);
+  const NEED={valeur:['pf','tit','p22'],prixEq:['tit','p22'],cout:['pb','pt'],perte:['pb','pf'],orFin:['pf','tit'],purete:['tit']};
+  const r={};
+  if(has('pf','tit','p22'))r.valeur=p.pf*p.tit*p.p22/22;
+  if(has('tit','p22'))r.prixEq=p.p22*p.tit/22;
+  if(has('pb','pt'))r.cout=p.pb*p.pt;
+  const frais=p.fr==null?0:p.fr;
+  if(r.valeur!==undefined&&r.cout!==undefined&&!err.fr)r.benefice=r.valeur-r.cout-frais;
+  if(has('pb','pf')){r.perte=p.pb-p.pf;if(p.pb>0)r.pertePct=r.perte/p.pb*100;}
+  if(has('pf','tit'))r.orFin=p.pf*p.tit/24;
+  if(has('tit'))r.purete=p.tit/24*100;
+  const need={};
+  Object.keys(NEED).forEach(k=>{if(r[k]===undefined)need[k]=NEED[k].filter(f=>p[f]==null);});
+  if(r.benefice===undefined){const n=[];if(r.valeur===undefined)n.push('valeur');if(r.cout===undefined)n.push('cout');if(err.fr)n.push('frais');need.benefice=n;}
+  const warn=[];
+  if(r.perte!==undefined&&r.perte<0)warn.push('perteNegative');
+  return{p,err,r,need,warn,fraisParDefaut:p.fr==null&&!err.fr};
+}
+/*FL-END*/
+
+/* ---------- Fonte / Lingot : écran, documents (bordereau, image HD, PDF) ---------- */
+const FL_FIELDS=[
+  {k:'pf',l:'Poids du lingot après fonte',s:'g',q:['10','25','41.19','48.69','50','100','250','500'],qs:'g'},
+  {k:'tit',l:'Titrage après fonte',s:'K',q:['24','23.10','23','22.5','22','18'],qs:'K'},
+  {k:'p22',l:'Prix de référence 22K',s:'GNF/g',q:['1200000','1150000','1100000'],qs:'',man:1},
+  {k:'pb',l:'Poids brut initial',s:'g',q:['10','25','41.19','48.69','50','100','250','500'],qs:'g'},
+  {k:'pt',l:'Prix terrain',s:'GNF/g'},
+  {k:'fr',l:'Frais (traitement, transport, fonte, laboratoire) — facultatif',s:'GNF'}
+];
+const flFmt=(n,max)=>sepFix(new Intl.NumberFormat('en-US',{maximumFractionDigits:max}).format(Math.abs(n)<5e-7?0:n));
+const flGNF=n=>{const r=Math.round(n);return (Object.is(r,-0)?'0':flFmt(r,0))+' GNF';};
+const flG=n=>flFmt(n,3)+' g';
+const flPct=n=>flFmt(n,2)+' %';
+const flKtxt=v=>flFmt(parseFloat(v),2);
+function flText(inp,res){
+  const d=new Date(),when=d.toLocaleDateString(LOC)+' '+d.toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'});
+  const p=res.p,r=res.r,L2=[];
+  L2.push(L('BORDEREAU FONTE / LINGOT — Calcula','MELT / INGOT SLIP — Calcula'),L('Date : ','Date: ')+when,'');
+  L2.push(L('DONNÉES SAISIES','ENTERED DATA'));
+  const row=(label,val)=>L2.push(label+' : '+val);
+  if(p.pf!=null)row(L('Poids du lingot après fonte','Ingot weight after melting'),flG(p.pf));
+  if(p.tit!=null)row(L('Titrage après fonte','Fineness after melting'),flKtxt(p.tit)+' K');
+  if(p.p22!=null)row(L('Prix de référence 22K (saisi à la main)','22K reference price (entered by hand)'),flGNF(p.p22)+'/g');
+  if(p.pb!=null)row(L('Poids brut initial','Initial gross weight'),flG(p.pb));
+  if(p.pt!=null)row(L('Prix terrain','Field price'),flGNF(p.pt)+'/g');
+  if(p.fr!=null)row(L('Frais','Costs'),flGNF(p.fr));
+  L2.push('',L('RÉSULTATS','RESULTS'));
+  if(r.valeur!==undefined){row(L('Valeur du lingot','Ingot value'),flGNF(r.valeur));L2.push('  '+L('Poids fondu × Titrage × Prix 22K ÷ 22','Melted weight × Fineness × 22K price ÷ 22'));}
+  if(r.prixEq!==undefined){row(L('Prix équivalent au titrage','Price equivalent to fineness'),flGNF(r.prixEq)+'/g');L2.push('  '+L('Prix 22K × Titrage ÷ 22','22K price × Fineness ÷ 22'));}
+  if(r.cout!==undefined){row(L('Coût d\'achat terrain','Field purchase cost'),flGNF(r.cout));L2.push('  '+L('Poids brut × Prix terrain','Gross weight × Field price'));}
+  if(r.benefice!==undefined){row(L('Bénéfice net','Net profit'),flGNF(r.benefice));L2.push('  '+L('Valeur du lingot − Coût terrain − Frais','Ingot value − Field cost − Costs')+(res.fraisParDefaut?L(' (frais = 0)',' (costs = 0)'):''));}
+  if(r.perte!==undefined){row(L('Perte au feu','Loss on melting'),flG(r.perte)+(r.pertePct!==undefined?' ('+flPct(r.pertePct)+')':''));L2.push('  '+L('Poids brut − Poids après fonte','Gross weight − Weight after melting'));}
+  if(r.orFin!==undefined){row(L('Or fin estimé (théorique)','Estimated fine gold (theoretical)'),flG(r.orFin));L2.push('  '+L('Poids fondu × Titrage ÷ 24','Melted weight × Fineness ÷ 24'));}
+  if(r.purete!==undefined){row(L('Pureté théorique','Theoretical purity'),flPct(r.purete));L2.push('  '+L('Titrage ÷ 24 × 100','Fineness ÷ 24 × 100'));}
+  res.warn.forEach(w=>{if(w==='perteNegative')L2.push('',L('⚠ Perte au feu négative : le poids après fonte dépasse le poids brut. Vérifiez la saisie ou les mesures.','⚠ Negative loss: the weight after melting exceeds the gross weight. Check the entries or measurements.'));});
+  L2.push('',L('Pureté théorique calculée à partir du titrage saisi ; ce n\'est pas une mesure de laboratoire. Prix de référence saisi manuellement : aucune cotation en direct.','Theoretical purity computed from the entered fineness; it is not a laboratory measurement. Reference price entered manually: no live quote.'));
+  return L2.join('\n');
+}
+/* — image HD (PNG, dessinée sur un canvas : aucune bibliothèque) — */
+async function flImage(text){
+  try{if(document.fonts&&document.fonts.load){await document.fonts.load('600 40px Sora');await document.fonts.load('500 30px Manrope');}}catch(e){}
+  const W=1080,PAD=64,LH=44,lines=[];
+  const cv=document.createElement('canvas');const cx=cv.getContext('2d');
+  cx.font='500 30px Manrope, Arial, sans-serif';
+  text.split('\n').forEach(raw=>{
+    if(raw==='')return lines.push('');
+    const ind=raw.match(/^\s*/)[0];let cur='';
+    raw.slice(ind.length).split(' ').forEach(w=>{const t=cur?cur+' '+w:ind+w;if(cx.measureText(t).width>W-PAD*2&&cur){lines.push(cur);cur=ind+w;}else cur=t;});
+    lines.push(cur);
+  });
+  const H=PAD*2+150+lines.length*LH+40;
+  cv.width=W;cv.height=H;
+  cx.fillStyle='#ffffff';cx.fillRect(0,0,W,H);
+  const g=cx.createLinearGradient(0,0,W,0);g.addColorStop(0,'#f4d684');g.addColorStop(1,'#c0903a');
+  cx.fillStyle=g;cx.fillRect(0,0,W,120);
+  cx.fillStyle='#2a1c05';cx.font='700 44px Sora, Arial, sans-serif';cx.textBaseline='alphabetic';
+  cx.fillText(lines[0]||'',PAD,78);
+  let y=120+PAD+LH;
+  lines.slice(1).forEach(l=>{
+    const head=/^[A-ZÉ][A-ZÉ \/]{5,}$/.test(l),sub=/^\s{2}/.test(l);
+    cx.font=head?'700 30px Sora, Arial, sans-serif':(sub?'500 25px Manrope, Arial, sans-serif':'600 30px Manrope, Arial, sans-serif');
+    cx.fillStyle=head?'#9a6b12':(sub?'#6b7487':(l.startsWith('⚠')?'#c43d3d':'#141926'));
+    cx.fillText(l,PAD,y);y+=LH;
+  });
+  return new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
+}
+/* — PDF (une page, texte, polices standard Helvetica : aucune bibliothèque) — */
+function flPdf(text){
+  const enc=s=>{let o='';for(const ch of s){let c=ch.charCodeAt(0);
+    const m={'→':'->','−':'-','⚠':'!','≈':'~','’':"'",'«':'"','»':'"','…':'...','–':'-','—':'-',' ':' ',' ':' '};
+    if(m[ch]!==undefined){o+=m[ch];continue;}
+    if(c>255)c=63;o+=String.fromCharCode(c);}return o.replace(/[\\()]/g,'\\$&');};
+  const MAXC=88,out=[];
+  text.split('\n').forEach(raw=>{
+    if(raw==='')return out.push('');
+    const ind=raw.match(/^\s*/)[0];let cur='';
+    raw.slice(ind.length).split(' ').forEach(w=>{const t=cur?cur+' '+w:ind+w;if(t.length>MAXC&&cur){out.push(cur);cur=ind+w;}else cur=t;});out.push(cur);
+  });
+  let content='0.91 0.77 0.42 rg 0 782 595 60 re f\n';
+  let y=806;
+  out.forEach((l,i)=>{
+    const head=i>0&&/^[A-ZÉ][A-ZÉ \/]{5,}$/.test(l),sub=/^\s{2}/.test(l),title=i===0;
+    if(i===0){content+='BT /F2 16 Tf 0.16 0.11 0.02 rg 40 '+y+' Td ('+enc(l)+') Tj ET\n';y=750;return;}
+    const f=head?'/F2 11':'/F1 '+(sub?'9':'11'),col=head?'0.6 0.42 0.07':(sub?'0.42 0.45 0.53':(l.startsWith('⚠')?'0.77 0.24 0.24':'0.08 0.1 0.15'));
+    content+='BT '+f+' Tf '+col+' rg 40 '+y+' Td ('+enc(l)+') Tj ET\n';y-=(l===''?9:15);
+  });
+  const objs=[];
+  objs.push('<< /Type /Catalog /Pages 2 0 R >>');
+  objs.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>');
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  objs.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');
+  let pdf='%PDF-1.4\n',offs=[];
+  objs.forEach((o,i)=>{offs.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});
+  const xr=pdf.length;
+  pdf+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+offs.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF';
+  const bytes=new Uint8Array(pdf.length);for(let i=0;i<pdf.length;i++)bytes[i]=pdf.charCodeAt(i)&255;
+  return new Blob([bytes],{type:'application/pdf'});
+}
+/* — remise du fichier : partage natif (APK), partage du navigateur, sinon téléchargement — */
+function blobB64(b){return new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=ko;r.readAsDataURL(b);});}
+async function deliverFile(blob,name,mime){
+  const C=window.Capacitor,P=C&&C.Plugins;
+  try{
+    if(C&&C.isNativePlatform&&C.isNativePlatform()&&P&&P.Filesystem&&P.Share){
+      const w=await P.Filesystem.writeFile({path:name,data:await blobB64(blob),directory:'CACHE'});
+      await P.Share.share({title:name,files:[w.uri],dialogTitle:name});return;
+    }
+  }catch(e){if(e&&/cancel/i.test(String(e.message||e)))return;}
+  try{
+    const f=new File([blob],name,{type:mime});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);toast(L('Fichier préparé : voir vos téléchargements','File ready: see your downloads'));
+}
+function renderFonte(box){
+  const saved=store.get('calc.fonte',{});const inp={pf:'',tit:'',p22:'',pb:'',pt:'',fr:''};
+  Object.keys(inp).forEach(k=>{if(saved&&typeof saved[k]==='string')inp[k]=saved[k];});
+  box.innerHTML='<p class="sub" style="margin:0 0 8px">Valeur d\'un lingot après fonte, coût d\'achat, bénéfice et perte au feu. Le prix de référence 22K se saisit à la main : aucune cotation en direct, tout fonctionne hors ligne.</p><div class="fields" id="fl-f"></div><div class="outs" id="fl-o" style="margin-top:10px"></div><div id="fl-w"></div><p class="note" id="fl-n"></p><div class="btnrow" style="margin-top:10px"><button class="btn sm" id="fl-copy">Bordereau</button><button class="btn alt sm" id="fl-img">Image HD</button><button class="btn alt sm" id="fl-pdf">PDF</button><button class="btn alt sm btn danger" id="fl-clr">Effacer</button></div>';
+  const fb=box.querySelector('#fl-f'),ob=box.querySelector('#fl-o'),wb=box.querySelector('#fl-w'),els={};
+  FL_FIELDS.forEach(f=>{
+    const d=document.createElement('div');d.className='field full';
+    d.innerHTML='<label class="lbl" for="fl-'+f.k+'">'+f.l+'</label>';
+    if(f.q){const q=document.createElement('div');q.className='chips';q.style.margin='0 0 2px';
+      f.q.forEach(v=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=(f.k==='p22'?flFmt(parseFloat(v),0):v.replace('.',','))+(f.qs?' '+f.qs:'');
+        b.addEventListener('click',()=>{buzz();els[f.k].value=v.replace('.',',');upd();});q.appendChild(b);});
+      d.appendChild(q);}
+    const w=document.createElement('div');w.className='wrap';const el=document.createElement('input');el.className='in';el.id='fl-'+f.k;el.inputMode='decimal';el.autocomplete='off';
+    el.placeholder=f.k==='fr'?L('0 (facultatif)','0 (optional)'):'';el.value=inp[f.k];el.style.paddingRight=(f.s.length*9+22)+'px';
+    w.innerHTML='<span class="suf">'+f.s+'</span>';w.prepend(el);d.appendChild(w);
+    const e=document.createElement('div');e.className='note';e.style.cssText='color:var(--danger);margin:0';e.id='fl-e-'+f.k;d.appendChild(e);
+    el.addEventListener('input',upd);el.addEventListener('change',upd);els[f.k]=el;fb.appendChild(d);
+  });
+  const ERR={invalid:L('Valeur invalide : saisissez un nombre.','Invalid value: enter a number.'),negative:L('Une valeur négative n\'est pas acceptée.','A negative value is not accepted.'),range:L('Le titrage doit être supérieur à 0 et au plus 24 K.','Fineness must be above 0 and at most 24 K.')};
+  const NAME={pf:L('le poids après fonte','the weight after melting'),tit:L('le titrage','the fineness'),p22:L('le prix 22K','the 22K price'),pb:L('le poids brut','the gross weight'),pt:L('le prix terrain','the field price'),valeur:L('la valeur du lingot','the ingot value'),cout:L('le coût terrain','the field cost'),frais:L('des frais valides','valid costs')};
+  let last=null;
+  function upd(){
+    Object.keys(inp).forEach(k=>inp[k]=els[k].value);store.set('calc.fonte',inp);
+    const res=fonteLingot(inp);last=res;const r=res.r;
+    FL_FIELDS.forEach(f=>{box.querySelector('#fl-e-'+f.k).textContent=res.err[f.k]?ERR[res.err[f.k]]:'';});
+    ob.innerHTML='';
+    const add=(label,val,miss,cls,formula)=>{
+      const d=document.createElement('div');d.className='out'+(cls&&cls.main?' main':'');
+      d.innerHTML='<span class="n"></span><span class="v"></span>';d.querySelector('.n').textContent=label;
+      const v=d.querySelector('.v');v.textContent=val!=null?val:'—';
+      if(cls&&cls.neg)v.style.color='var(--danger)';
+      if(val==null&&miss&&miss.length){const h=document.createElement('div');h.className='note';h.style.margin='2px 0 0';h.textContent=L('À renseigner : ','To fill in: ')+miss.map(x=>NAME[x]||x).join(', ');const wrap=document.createElement('div');wrap.style.cssText='width:100%';
+        d.style.flexWrap='wrap';d.appendChild(h);}
+      ob.appendChild(d);
+    };
+    add(L('Valeur du lingot','Ingot value'),r.valeur!==undefined?flGNF(r.valeur):null,res.need.valeur,{main:1});
+    add(L('Prix équivalent au titrage','Price equivalent to fineness'),r.prixEq!==undefined?flGNF(r.prixEq)+'/g':null,res.need.prixEq);
+    add(L('Coût d\'achat terrain','Field purchase cost'),r.cout!==undefined?flGNF(r.cout):null,res.need.cout);
+    add(L('Bénéfice net','Net profit'),r.benefice!==undefined?flGNF(r.benefice):null,res.need.benefice,{neg:r.benefice<0});
+    add(L('Perte au feu','Loss on melting'),r.perte!==undefined?flG(r.perte)+(r.pertePct!==undefined?' · '+flPct(r.pertePct):''):null,res.need.perte,{neg:r.perte<0});
+    add(L('Or fin estimé (théorique)','Estimated fine gold (theoretical)'),r.orFin!==undefined?flG(r.orFin):null,res.need.orFin);
+    add(L('Pureté théorique','Theoretical purity'),r.purete!==undefined?flPct(r.purete):null,res.need.purete);
+    wb.innerHTML='';
+    res.warn.forEach(w=>{if(w==='perteNegative'){const d=document.createElement('div');d.className='note';d.style.cssText='color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:8px 10px;margin-top:8px';d.textContent=L('⚠ Perte au feu négative : le poids après fonte dépasse le poids brut. Vérifiez la saisie ou la différence de mesure.','⚠ Negative loss: the weight after melting exceeds the gross weight. Check the entry or the measurement difference.');wb.appendChild(d);}});
+    box.querySelector('#fl-n').textContent=(r.benefice!==undefined&&res.fraisParDefaut?L('Frais non renseignés : comptés pour 0. ','Costs left empty: counted as 0. '):'')+L('La pureté est théorique (calculée à partir du titrage saisi), pas une mesure de laboratoire. Le prix 22K est celui que vous saisissez.','Purity is theoretical (computed from the entered fineness), not a laboratory measurement. The 22K price is the one you enter.');
+  }
+  const need=()=>{const res=fonteLingot(inp);if(!Object.keys(res.r).length){toast(L('Renseignez d\'abord quelques champs valides','Fill in some valid fields first'));return null;}return res;};
+  box.querySelector('#fl-copy').addEventListener('click',()=>{const res=need();if(!res)return;openPick(L('Bordereau Fonte / Lingot','Melt / Ingot slip'),shareItems(flText(inp,res),L('Bordereau','Slip')));});
+  box.querySelector('#fl-img').addEventListener('click',async()=>{const res=need();if(!res)return;toast(L('Création de l\'image…','Creating image…'));try{const b=await flImage(flText(inp,res));await deliverFile(b,'bordereau-fonte-lingot.png','image/png');}catch(e){toast(L('Création de l\'image impossible','Could not create the image'));}});
+  box.querySelector('#fl-pdf').addEventListener('click',async()=>{const res=need();if(!res)return;try{await deliverFile(flPdf(flText(inp,res)),'bordereau-fonte-lingot.pdf','application/pdf');}catch(e){toast(L('Création du PDF impossible','Could not create the PDF'));}});
+  box.querySelector('#fl-clr').addEventListener('click',()=>{if(!confirm(T('Effacer tous les champs ?')))return;Object.keys(els).forEach(k=>els[k].value='');upd();});
+  upd();
+}
+
 /* ---------- ticket de caisse ---------- */
 let ticket=store.get('calc.ticket',[]);if(!Array.isArray(ticket))ticket=[];
 function renderTicket(box){
@@ -1325,7 +1534,7 @@ const EN={
 'Sauvegarde copiée : collez-la dans un message':'Backup copied: paste it into a message','Sauvegarde non reconnue':'Backup not recognised','La sauvegarde est vide':'The backup is empty','Restauration impossible':'Restore failed','Collez d’abord la sauvegarde':'Paste the backup first','Fichier préparé':'File ready','Téléchargement impossible : utilisez « Copier »':'Download failed: use “Copy”',
 'Remplacer les données actuelles (notes, historique, réglages) par cette sauvegarde ?':'Replace current data (notes, history, settings) with this backup?',
 'Pas de connexion Internet':'No Internet connection','Mise à jour impossible pour le moment':'Update not possible right now',
-'Mise à jour disponible':'Update available','Télécharger':'Download','Inverser':'Swap','Choisir':'Choose','Choisir l\'unité d\'arrivée':'Choose target unit','Choisir l\'unité de départ':'Choose source unit','Valeur à convertir':'Value to convert'
+'Fonte / Lingot':'Melt / Ingot','Valeur d\'un lingot après fonte, coût d\'achat, bénéfice et perte au feu. Le prix de référence 22K se saisit à la main : aucune cotation en direct, tout fonctionne hors ligne.':'Value of an ingot after melting, purchase cost, profit and loss on melting. The 22K reference price is entered by hand: no live quote, everything works offline.','Poids du lingot après fonte':'Ingot weight after melting','Titrage après fonte':'Fineness after melting','Prix de référence 22K':'22K reference price','Poids brut initial':'Initial gross weight','Prix terrain':'Field price','Frais (traitement, transport, fonte, laboratoire) — facultatif':'Costs (processing, transport, melting, laboratory) — optional','Bordereau':'Slip','Image HD':'HD image','Effacer tous les champs ?':'Clear all fields?','Perte au feu':'Loss on melting','Or fin estimé (théorique)':'Estimated fine gold (theoretical)','Pureté théorique':'Theoretical purity','Valeur du lingot':'Ingot value','Prix équivalent au titrage':'Price equivalent to fineness','Coût d\'achat terrain':'Field purchase cost','Bénéfice net':'Net profit','Mise à jour disponible':'Update available','Télécharger':'Download','Inverser':'Swap','Choisir':'Choose','Choisir l\'unité d\'arrivée':'Choose target unit','Choisir l\'unité de départ':'Choose source unit','Valeur à convertir':'Value to convert'
 };
 const EN_RE=[
  [/^Taux du (.+)$/,'Rates of $1'],[/^Mémoire : (.+)$/,'Memory: $1'],[/^Ajouté à « (.+) »$/,'Added to “$1”'],[/^Ajouté à une nouvelle note$/,'Added to a new note'],
@@ -1373,6 +1582,7 @@ const TOOLS=[
    out:v=>{const r=v.t/100;const pv=v.w==='c'?v.a*(1+r):v.a/(1-r);return[{l:'Prix de vente',v:pv,main:1},{l:'Bénéfice',v:pv-v.a},{l:'Marge sur le coût',v:(pv-v.a)/v.a*100,s:' %',dec:2},{l:'Marge sur la vente',v:(pv-v.a)/pv*100,s:' %',dec:2}];}},
  {id:'benef',name:'Bénéfice',desc:'Gain réalisé entre un prix d\'achat et un prix de vente.',fields:[{k:'a',l:'Prix d\'achat',v:'60000'},{k:'b',l:'Prix de vente',v:'75000'},{k:'q',l:'Quantité',v:'1',full:1}],
    out:v=>[{l:'Bénéfice total',v:(v.b-v.a)*v.q,main:1},{l:'Bénéfice par unité',v:v.b-v.a},{l:'Marge sur le coût',v:(v.b-v.a)/v.a*100,s:' %',dec:2},{l:'Marge sur la vente',v:(v.b-v.a)/v.b*100,s:' %',dec:2}]},
+ {id:'fonte',name:'Fonte / Lingot',special:renderFonte},
  {id:'ticket',name:'Ticket',special:renderTicket},
  {id:'settings',name:'Réglages',special:renderSettings},
  {id:'pret',name:'Prêt',desc:'Mensualité d\'un prêt à taux fixe.',fields:[{k:'c',l:'Capital emprunté',v:'5000000',full:1},{k:'t',l:'Taux annuel',v:'12',s:'%'},{k:'n',l:'Durée',v:'24',s:'mois'}],
